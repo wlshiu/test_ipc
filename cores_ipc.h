@@ -59,9 +59,14 @@ extern uint32_t g_share_buf;
 
 typedef enum ipc_err
 {
-    IPC_ERR_EMPTY   = 2,
-    IPC_ERR_FULL    = 1,
-    IPC_ERR_OK      = 0,
+    IPC_ERR_CMD_RECEIVED        = 4,
+    IPC_ERR_CMD_SENT            = 3,
+    IPC_ERR_EMPTY               = 2,
+    IPC_ERR_FULL                = 1,
+    IPC_ERR_OK                  = 0,
+    IPC_ERR_NULL_POINTER        = -1,
+    IPC_ERR_INVALID_PARAM       = -2,
+    IPC_ERR_UNKNOWN             = -3,
 
 } ipc_err_t;
 
@@ -75,6 +80,7 @@ typedef enum ipc_channel
 typedef enum    ipc_cmd
 {
     IPC_CMD_UNKNOWN     = 0,
+    IPC_CMD_DUMMY,
     IPC_CMD_HOLLOW,
 
 } ipc_cmd_t;
@@ -121,7 +127,7 @@ extern pthread_mutex_t      g_mtx;
 typedef struct  msg_box_base
 {
     ipc_cmd_t       cmd;
-    uint32_t        report_rst;
+    ipc_err_t       report_rst;
 } msg_box_base_t;
 
 typedef struct  msg_box
@@ -131,7 +137,7 @@ typedef struct  msg_box
     union {
         struct {
             uint32_t        cnt;
-            uint8_t         *pStr;
+            char            *pStr;
         } hollow;
 
         struct {

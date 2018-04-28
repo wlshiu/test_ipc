@@ -92,7 +92,12 @@ _cmd_proc(
         case IPC_CMD_HOLLOW:
             msg("get 'Cmd': %08u, %s\n",
                 pMsg_box->hollow.cnt, pMsg_box->hollow.pStr);
-            pMsg_box->base.report_rst = 111;
+            pMsg_box->base.report_rst = IPC_ERR_CMD_RECEIVED;
+            free(pMsg_box->hollow.pStr);
+            break;
+
+        case IPC_CMD_DUMMY:
+            /* do nothing */
             break;
         default:
             break;
@@ -120,7 +125,7 @@ _core_1_proc(void *argv)
 
         cmd_cnt++;
 
-//        Sleep(100);
+        Sleep(100);
     }
     pthread_exit(NULL);
     return 0;

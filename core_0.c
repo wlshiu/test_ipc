@@ -28,6 +28,8 @@
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
+#define SYNCHRONOUS_MODE        0
+
 typedef ipc_err_t (*CB_IPC_ASSIGN_CMD)(msg_box_t *pMsg_box, void *pUser_data);
 //=============================================================================
 //                  Macro Definition
@@ -51,7 +53,9 @@ _ipc_send_cmd(
     uint32_t            cmd_index,
     CB_IPC_ASSIGN_CMD   cb_assign_cmd)
 {
+#define SLIDING_WINDOW_SIZE       2
     ipc_err_t     rval = IPC_ERR_OK;
+    static uint32_t    check_cnt = 0;
 
     do {
         uint32_t    cmdq_base = 0;
@@ -66,6 +70,26 @@ _ipc_send_cmd(
             break;
         }
 
+        #if !(SYNCHRONOUS_MODE)
+        /**
+         *  It MUST send dummy msg_boxs (times = SLIDING_WINDOW_SIZE)
+         *  for pushing data out the sliding window.
+         */
+        if( ((cmd_index < check_cnt)
+                ? ((uint32_t)(-1) - check_cnt + cmd_index)
+                : (cmd_index - check_cnt)) > SLIDING_WINDOW_SIZE )
+        {
+            while( BITBAND_SRAM_BIT_GET(cmdq_base, check_cnt) )
+            {
+                Sleep(1);
+            }
+
+            pMsg_box = (msg_box_t*)IPC_GET_MSG_BOX_SLOT(share_buf_base, check_cnt);
+            msg("  get_response(%08u, %u)\n", check_cnt, pMsg_box->base.report_rst);
+            check_cnt++;
+        }
+        #endif
+
         pMsg_box = (msg_box_t*)IPC_GET_MSG_BOX_SLOT(share_buf_base, cmd_index);
         memset(pMsg_box, 0x0, sizeof(msg_box_t));
         *ppMsg_box = pMsg_box;
@@ -75,11 +99,14 @@ _ipc_send_cmd(
 
         BITBAND_SRAM_BIT_SET(cmdq_base, cmd_index);
 
+        #if (SYNCHRONOUS_MODE)
         // synchronous mode,  wait result report
         while( BITBAND_SRAM_BIT_GET(cmdq_base, cmd_index) )
         {
             Sleep(1);
         }
+        msg("  get_response(%08u, %u)\n", check_cnt, pMsg_box->base.report_rst);
+        #endif
     } while(0);
 
     return rval;
@@ -92,12 +119,19 @@ _cmd_assign(
 {
     ipc_err_t       rval = IPC_ERR_OK;
     uint32_t        *pCmd_index = (uint32_t*)pUser_data;
+    char            *pBuf = 0;
 
-    snprintf((char*)g_str_buf, 128, "%s %08u\n", "HollOW", *pCmd_index);
+    /**
+     *  When synchronous mode, you can use a static buffer between 2 cores.
+     *  However, when asynchronous mode, every pointer of argument in a msg_box MUST have self instance.
+     */
+    pBuf = malloc(32); // core 1 free
+
+    snprintf((char*)pBuf, 32, "%s %08u\n", "HollOW", *pCmd_index);
 
     pMsg_box->base.cmd      = IPC_CMD_HOLLOW;
     pMsg_box->hollow.cnt    = *pCmd_index;
-    pMsg_box->hollow.pStr   = g_str_buf;
+    pMsg_box->hollow.pStr   = pBuf;
     return rval;
 }
 
@@ -118,10 +152,14 @@ _core_0_proc(void *argv)
             continue;
         }
 
-        msg("  cmd_end(%08u, %u)\n", cmd_cnt, pMsg_box->base.report_rst);
+        msg("send %u-th cmd\n", cmd_cnt);
         cmd_cnt++;
 
+
 //        Sleep(100);
+
+//        if( cmd_cnt == 10 )
+//            printf("\n");
     }
     pthread_exit(NULL);
     return 0;
