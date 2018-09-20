@@ -36,16 +36,18 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
-		<Unit filename="core_0.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="core_1.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="cores_ipc.h" />
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="rbuf.h" />
+		<Unit filename="rpc_binder.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="rpc_binder.h" />
+		<Unit filename="rpc_msg.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="rpc_msg.h" />
 		<Extensions>
 			<code_completion />
 			<envvars />
