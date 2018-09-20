@@ -38,13 +38,14 @@ static msg_box_t        g_msg[RPC_MSG_MAX_QUEUE_SIZE];
 static void
 _test_rpc_msg(void)
 {
-    int     i;
+    int                 i;
+    rpc_msg_state_t     state = RPC_MSG_STATE_OK;
 
     rpc_msg_init(RPC_MSG_ID_CORE0_CORE1);
 
-    for(i = 0; i < RPC_MSG_MAX_QUEUE_SIZE; i++)
+    for(i = 0; i < RPC_MSG_MAX_QUEUE_SIZE + 1; i++)
     {
-        rpc_msg_state_t     state = RPC_MSG_STATE_OK;
+
 
         g_msg[i].cmd  = 0xaaaaaaaa;
         g_msg[i].data = i;
@@ -53,11 +54,13 @@ _test_rpc_msg(void)
         printf("\n");
     }
 
-
+    for(i = 0; i < RPC_MSG_MAX_QUEUE_SIZE; ++i)
     {
         msg_box_t       *pMsg_box = 0;
 
-        rpc_msg_pop(RPC_MSG_ID_CORE0_CORE1, (void**)&pMsg_box, 0);
+        state = rpc_msg_pop(RPC_MSG_ID_CORE0_CORE1, (void**)&pMsg_box, 0);
+        printf("state = %d\n", state);
+        printf("x%x, %d\n", pMsg_box->cmd, pMsg_box->data);
     }
 
     return;
