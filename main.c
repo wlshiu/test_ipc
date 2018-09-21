@@ -21,7 +21,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "rpc_msg.h"
+#include <time.h>
+#include "pthread.h"
+#include <windows.h>
+
+#include "rpc_binder.h"
 
 
 typedef struct msg_box
@@ -32,24 +36,25 @@ typedef struct msg_box
 } msg_box_t;
 
 
-static msg_box_t        g_msg[RPC_MSG_MAX_QUEUE_SIZE];
+static pthread_mutex_t      g_log_mtx;
+static msg_box_t            g_msg[RPC_BINDER_MSG_NUM_MAX];
 
+
+#define RPC_MSG_CHANNEL_CORE0_2_CORE1       RPC_MSG_CHANNEL_00
 
 static void
 _test_rpc_msg(void)
 {
     int                 i;
-    rpc_msg_state_t     state = RPC_MSG_STATE_OK;
+    rpc_state_t         state = RPC_STATE_OK;
 
-    rpc_msg_init(RPC_MSG_ID_CORE0_CORE1);
+    rpc_msg_init(RPC_MSG_CHANNEL_CORE0_2_CORE1, RPC_MSG_MAX_QUEUE_SIZE);
 
     for(i = 0; i < RPC_MSG_MAX_QUEUE_SIZE + 1; i++)
     {
-
-
         g_msg[i].cmd  = 0xaaaaaaaa;
         g_msg[i].data = i;
-        state = rpc_msg_push(RPC_MSG_ID_CORE0_CORE1, &g_msg[i], 0);
+        state = rpc_msg_push(RPC_MSG_CHANNEL_CORE0_2_CORE1, &g_msg[i], 0);
         printf("state = %d\n", state);
         printf("\n");
     }
@@ -58,7 +63,7 @@ _test_rpc_msg(void)
     {
         msg_box_t       *pMsg_box = 0;
 
-        state = rpc_msg_pop(RPC_MSG_ID_CORE0_CORE1, (void**)&pMsg_box, 0);
+        state = rpc_msg_pop(RPC_MSG_CHANNEL_CORE0_2_CORE1, (void**)&pMsg_box, 0);
         printf("state = %d\n", state);
         printf("x%x, %d\n", pMsg_box->cmd, pMsg_box->data);
     }
@@ -66,9 +71,98 @@ _test_rpc_msg(void)
     return;
 }
 
+
+static void*
+_task_core_0(void *argv)
+{
+    rpc_msg_channel_t       channel_id = RPC_MSG_CHANNEL_00;
+    rpc_msg_box_t           msg_box[5];
+
+    rpc_binder_init(channel_id, (uint32_t*)&msg_box, sizeof(msg_box[5]));
+
+    while(1)
+    {
+
+        pthread_mutex_lock(&g_log_mtx);
+        pthread_mutex_unlock(&g_log_mtx);
+
+        Sleep((rand() >> 5) & 0x3);
+    }
+
+    pthread_exit(NULL);
+    return 0;
+}
+
+static void*
+_task_core_1(void *argv)
+{
+    rpc_msg_channel_t       channel_id = RPC_MSG_CHANNEL_01;
+    rpc_msg_box_t           msg_box[5];
+
+    rpc_binder_init(channel_id, (uint32_t*)&msg_box, sizeof(msg_box[5]));
+
+    while(1)
+    {
+
+        pthread_mutex_lock(&g_log_mtx);
+        pthread_mutex_unlock(&g_log_mtx);
+
+        Sleep((rand() >> 5) & 0x3);
+    }
+
+    pthread_exit(NULL);
+    return 0;
+}
+
+static void
+_test_rpc_binder()
+{
+
+    pthread_mutex_init(&g_log_mtx, 0);
+
+#if 0
+    {
+        pthread_t   t1, t2;
+        pthread_create(&t1, 0, _task_core_0, 0);
+        pthread_create(&t2, 0, _task_core_1, 0);
+    }
+#else
+
+    #define MSG_BOX_NUM     5
+    int                 i;
+    rpc_state_t         state = RPC_STATE_OK;
+    rpc_msg_box_t       msg_box[MSG_BOX_NUM];
+
+    rpc_binder_init(RPC_MSG_CHANNEL_00, (uint32_t*)&msg_box, sizeof(msg_box));
+
+    for(i = 0; i < RPC_BINDER_MSG_NUM_MAX; i++)
+    {
+        rpc_msg_box_t       *pCur_box = &msg_box[i % MSG_BOX_NUM];
+
+        pCur_box->procedurse_id     = RPC_BINDER_PROCEDURE_05;
+        pCur_box->data.def.param[0] = i;
+        pCur_box->data.def.param[1] = 0x1111;
+        state = rpc_binder_send(RPC_MSG_CHANNEL_00, pCur_box);
+        if( state == RPC_STATE_Q_FULL )
+            break;
+
+        printf("%02d-th, state = %d\n", i, state);
+    }
+
+    do {
+        state = rpc_binder_recv(RPC_MSG_CHANNEL_00);
+    } while( state != RPC_STATE_Q_EMPTY );
+
+#endif
+
+    return;
+}
+
 int main()
 {
-    _test_rpc_msg();
+    srand(time(NULL));
+    // _test_rpc_msg();
+    _test_rpc_binder();
 
     return 0;
 }

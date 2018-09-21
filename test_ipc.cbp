@@ -17,6 +17,7 @@
 				</Compiler>
 				<Linker>
 					<Add library="../../../../_portable/codeblocks-17.12mingw/MinGW/lib/libpthread.a" />
+					<Add library="../../../../_portable/codeblocks-17.12mingw/MinGW/lib/libkernel32.a" />
 					<Add directory="../../../../_portable/codeblocks-17.12mingw/MinGW/lib" />
 				</Linker>
 			</Target>

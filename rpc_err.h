@@ -10,52 +10,36 @@
  * PURPOSE.
  * See the GNU General Public License version 3 for more details.
  */
-/** @file rpc_msg.h
+/** @file rpc_err.h
  *
  * @author Wei-Lun Hsu
  * @version 0.1
  * @date 2018/09/20
- * @license GNU GENERAL PUBLIC LICENSE Version 3
+ * @license GNU General Public License version 3
  * @description
  */
 
-#ifndef __rpc_msg_H_wVNzyewp_lXGj_Hg74_sKFm_uvInHKzfNGgA__
-#define __rpc_msg_H_wVNzyewp_lXGj_Hg74_sKFm_uvInHKzfNGgA__
+#ifndef __rpc_err_H_wS2gOHUt_leyG_HiPl_sEyu_uHSTCt2l8YKC__
+#define __rpc_err_H_wS2gOHUt_leyG_HiPl_sEyu_uHSTCt2l8YKC__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <stdint.h>
-#include "rpc_err.h"
+
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
-#define RPC_MSG_MAX_QUEUE_SIZE      16
-
-
-typedef enum rpc_msg_state
+typedef enum rpc_state
 {
-    RPC_MSG_STATE_OK        = 0,
-    RPC_MSG_STATE_Q_EMPTY,
-    RPC_MSG_STATE_Q_FULL,
-    RPC_MSG_STATE_ERR_PARAM_INVALID,
-    RPC_MSG_STATE_ERR_NO_INIT,
-    RPC_MSG_STATE_ERR_TIMEOUT,
-    RPC_MSG_STATE_ERR_UNKNOWN,
-
-} rpc_msg_state_t;
-
-
-typedef enum rpc_msg_channel
-{
-    RPC_MSG_CHANNEL_00,
-    RPC_MSG_CHANNEL_01,
-
-    RPC_MSG_CHANNEL_TOTAL
-} rpc_msg_channel_t;
-
-
+    RPC_STATE_Q_EMPTY               = 2,
+    RPC_STATE_Q_FULL                = 1,
+    RPC_STATE_OK                    = 0,
+    RPC_STATE_ERR_NO_INIT           = -1,
+    RPC_STATE_ERR_TIMEOUT           = -2,
+    RPC_STATE_ERR_INVELID_PARAM     = -3,
+    RPC_STATE_ERR_UNKNOWN           = -4,
+} rpc_state_t;
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
@@ -75,29 +59,6 @@ typedef enum rpc_msg_channel
 //=============================================================================
 //                  Public Function Definition
 //=============================================================================
-rpc_state_t
-rpc_msg_init(
-    rpc_msg_channel_t   channel_id,
-    int                 msg_count);
-
-
-rpc_state_t
-rpc_msg_push(
-    rpc_msg_channel_t   channel_id,
-    void                *pData,
-    uint32_t            timeout);
-
-
-rpc_state_t
-rpc_msg_pop(
-    rpc_msg_channel_t   channel_id,
-    void                **ppData,
-    uint32_t            timeout);
-
-
-rpc_state_t
-rpc_msg_notify(void);
-
 
 #ifdef __cplusplus
 }
