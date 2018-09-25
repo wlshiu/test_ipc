@@ -33,6 +33,8 @@ extern "C" {
 //=============================================================================
 #define RPC_MSG_MAX_QUEUE_SIZE      16
 
+#define RPC_MSG_BLOCKING            ((uint32_t)-1)
+
 
 typedef enum rpc_msg_state
 {
@@ -63,7 +65,7 @@ typedef enum rpc_msg_channel
 //=============================================================================
 //                  Structure Definition
 //=============================================================================
-
+typedef int (*CB_SEND_EVENT_HANDLER)(void *pTunnel_info);
 //=============================================================================
 //                  Global Data Definition
 //=============================================================================
@@ -96,7 +98,22 @@ rpc_msg_pop(
 
 
 rpc_state_t
-rpc_msg_notify(void);
+rpc_msg_notify(
+    rpc_msg_channel_t       channel_id);
+
+
+rpc_state_t
+rpc_msg_register_send_handler(
+    rpc_msg_channel_t       channel_id,
+    CB_SEND_EVENT_HANDLER   send_handler,
+    void                    *pTunnel_info);
+
+
+
+int
+rpc_msg_is_full(
+    rpc_msg_channel_t       channel_id);
+
 
 
 #ifdef __cplusplus

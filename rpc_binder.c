@@ -94,7 +94,6 @@ rpc_binder_recv(
         if( pMsg_box && pMsg_box->procedurse_id < RPC_BINDER_PROCEDURE_TOTAL )
         {
             rpc_procedure_node_t        *pCur_node = &g_rpc_usr_procedures[pMsg_box->procedurse_id];
-            printf("%d, %d, x%x\n", pMsg_box->procedurse_id, pMsg_box->data.def.param[0], pMsg_box->data.def.param[1]);
 
             if( pCur_node->cb_usr_procedures )
                 pCur_node->cb_usr_procedures(pMsg_box, pCur_node->pTunnel_info);
@@ -131,7 +130,7 @@ rpc_binder_send(
 }
 
 /**
- *  \brief rpc_binder_procedure_register()
+ *  \brief rpc_binder_register_procedure()
  *
  *  \param [in] id              enum rpc_binder_event_id_t
  *  \param [in] procedure       callback function if be triggered
@@ -141,7 +140,7 @@ rpc_binder_send(
  *  \details
  */
 rpc_state_t
-rpc_binder_procedure_register(
+rpc_binder_register_procedure(
     rpc_binder_procedure_id_t   procedure_id,
     CB_RPC_EVENT_PROCEDURE      procedure,
     void                        *pTunnel_info)
@@ -163,7 +162,7 @@ rpc_binder_procedure_register(
 
 
 rpc_state_t
-rpc_binder_procedure_unregister(
+rpc_binder_unregister_procedure(
     rpc_binder_procedure_id_t   procedure_id)
 {
     rpc_state_t     rval = RPC_STATE_OK;
@@ -179,4 +178,26 @@ rpc_binder_procedure_unregister(
     } while(0);
 
     return rval;
+}
+
+
+rpc_state_t
+rpc_binder_register_send_handler(
+    rpc_msg_channel_t       channel_id,
+    CB_SEND_EVENT_HANDLER   handler,
+    void                    *pTunnel_info)
+{
+    rpc_state_t     rval = RPC_STATE_OK;
+    do {
+        rpc_msg_register_send_handler(channel_id, handler, pTunnel_info);
+    } while(0);
+
+    return rval;
+}
+
+int
+rpc_binder_is_full(
+    rpc_msg_channel_t       channel_id)
+{
+    return rpc_msg_is_full(channel_id);
 }

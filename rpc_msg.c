@@ -39,10 +39,25 @@
 //=============================================================================
 RBUF_TYPEDEF(uint32_t, rpcq_hdr_t);
 
+
 typedef struct rpcq
 {
     rpcq_hdr_t              rpcq_hdr;
+
+    /**
+     *  buf_pool
+     *  +------+--------------------------------------------+
+     *  | ptr  | ptr  | ptr  | ptr  | ...                   |
+     *  +------+--------------------------------------------+
+     *
+     *  ps. user attach physical address when pushes message
+     *
+     */
     RPCMSG_RBUF_ELEM_TYPE   buf_pool[RPC_MSG_MAX_QUEUE_SIZE];
+
+    CB_SEND_EVENT_HANDLER   cb_send_handler;
+    void                    *pTunnel_info;
+
     uint32_t                valid;
 } rpcq_t;
 
@@ -54,11 +69,11 @@ typedef struct rpc_msg_share_mem
 //=============================================================================
 //                  Global Data Definition
 //=============================================================================
-#if 1
-    static rpc_msg_share_mem_t      g_share_buf;
+#if 1 // debug
+    static rpc_msg_share_mem_t      g_share_buf;    // simulate share buffer
     static rpcq_t                   *g_pRpcq = (rpcq_t*)&g_share_buf;
 #else
-    static rpcq_t                   *g_pRpcq = (rpcq_t*)0xAABBCCDD;
+    static rpcq_t                   *g_pRpcq = (rpcq_t*)0xAABBCCDD; // assign fix pointer
 #endif
 //=============================================================================
 //                  Private Function Definition
@@ -72,8 +87,12 @@ typedef struct rpc_msg_share_mem
  *      broadcast event to other cores or remote devices
  */
 static int
-_rpc_send_signal(void)
+_rpc_send_signal(
+    rpcq_t      *pRpcq_cur)
 {
+    if( pRpcq_cur->cb_send_handler )
+        pRpcq_cur->cb_send_handler(pRpcq_cur->pTunnel_info);
+
     #if 0
     // ARM trigger IRQ to other cores
     asm volatile ("dsb");
@@ -94,7 +113,7 @@ rpc_msg_init(
         int         queue_size = 0;
         rpcq_t      *pRpcq_cur = &g_pRpcq[channel_id];
 
-        if( channel_id >= RPC_MSG_CHANNEL_TOTAL )
+        if( channel_id >= RPC_MSG_CHANNEL_TOTAL || msg_count == 0 )
         {
             rval = RPC_STATE_ERR_INVELID_PARAM;
             break;
@@ -102,6 +121,9 @@ rpc_msg_init(
 
         queue_size = (msg_count < RPC_MSG_MAX_QUEUE_SIZE) ? msg_count : RPC_MSG_MAX_QUEUE_SIZE;
 
+        /**
+         *  (queue_size - 1) => work-round bug of rbuf
+         */
         RBUF_INIT(&pRpcq_cur->rpcq_hdr, queue_size - 1, pRpcq_cur->buf_pool, RPCMSG_RBUF_ELEM_TYPE);
         pRpcq_cur->valid = RPCMSG_RBUF_VALID_NUMBER;
 
@@ -169,7 +191,7 @@ rpc_msg_push(
         }while(0);
         #endif
 
-        _rpc_send_signal();
+        _rpc_send_signal(pRpcq_cur);
 
     } while(0);
     return rval;
@@ -231,10 +253,38 @@ rpc_msg_pop(
 
 
 rpc_state_t
-rpc_msg_notify(void)
+rpc_msg_notify(
+    rpc_msg_channel_t   channel_id)
 {
     rpc_state_t     rval = RPC_STATE_OK;
-    _rpc_send_signal();
+    rpcq_t          *pRpcq_cur = &g_pRpcq[channel_id];
+
+    _rpc_send_signal(pRpcq_cur);
+
     return rval;
 }
+
+rpc_state_t
+rpc_msg_register_send_handler(
+    rpc_msg_channel_t       channel_id,
+    CB_SEND_EVENT_HANDLER   send_handler,
+    void                    *pTunnel_info)
+{
+    rpc_state_t     rval = RPC_STATE_OK;
+    rpcq_t          *pRpcq_cur = &g_pRpcq[channel_id];
+
+    pRpcq_cur->cb_send_handler = send_handler;
+    pRpcq_cur->pTunnel_info    = pTunnel_info;
+
+    return rval;
+}
+
+int
+rpc_msg_is_full(
+    rpc_msg_channel_t       channel_id)
+{
+    rpcq_t          *pRpcq_cur = &g_pRpcq[channel_id];
+    return (RBUF_IS_FULL(&pRpcq_cur->rpcq_hdr)) ? 1 : 0;
+}
+
 

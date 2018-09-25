@@ -76,6 +76,11 @@ typedef struct rpc_msg_box
 
     union {
         struct {
+            uint32_t        core_id;
+            uint32_t        sequence_num;
+        } debug;
+
+        struct {
             uint32_t    param[9];
         } def;
     } data;
@@ -121,15 +126,28 @@ rpc_binder_send(
 
 
 rpc_state_t
-rpc_binder_procedures_register(
+rpc_binder_register_procedure(
     rpc_binder_procedure_id_t   procedure_id,
     CB_RPC_EVENT_PROCEDURE      procedure,
     void                        *pTunnel_info);
 
 
 rpc_state_t
-rpc_binder_procedures_unregister(
+rpc_binder_unregister_procedures(
     rpc_binder_procedure_id_t   procedure_id);
+
+
+rpc_state_t
+rpc_binder_register_send_handler(
+    rpc_msg_channel_t       channel_id,
+    CB_SEND_EVENT_HANDLER   handler,
+    void                    *pTunnel_info);
+
+
+int
+rpc_binder_is_full(
+    rpc_msg_channel_t       channel_id);
+
 
 
 #ifdef __cplusplus

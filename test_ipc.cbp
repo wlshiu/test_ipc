@@ -45,10 +45,14 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="rpc_binder.h" />
+		<Unit filename="rpc_err.h" />
 		<Unit filename="rpc_msg.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="rpc_msg.h" />
+		<Unit filename="test_simulation.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Extensions>
 			<code_completion />
 			<envvars />

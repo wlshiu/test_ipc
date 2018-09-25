@@ -36,13 +36,16 @@ typedef struct msg_box
 } msg_box_t;
 
 
-static pthread_mutex_t      g_log_mtx;
+extern void test_rpc_simulation();
+
+
+
 static msg_box_t            g_msg[RPC_BINDER_MSG_NUM_MAX];
 
 
 #define RPC_MSG_CHANNEL_CORE0_2_CORE1       RPC_MSG_CHANNEL_00
 
-static void
+static void __attribute__ ((unused))
 _test_rpc_msg(void)
 {
     int                 i;
@@ -71,63 +74,9 @@ _test_rpc_msg(void)
     return;
 }
 
-
-static void*
-_task_core_0(void *argv)
-{
-    rpc_msg_channel_t       channel_id = RPC_MSG_CHANNEL_00;
-    rpc_msg_box_t           msg_box[5];
-
-    rpc_binder_init(channel_id, (uint32_t*)&msg_box, sizeof(msg_box[5]));
-
-    while(1)
-    {
-
-        pthread_mutex_lock(&g_log_mtx);
-        pthread_mutex_unlock(&g_log_mtx);
-
-        Sleep((rand() >> 5) & 0x3);
-    }
-
-    pthread_exit(NULL);
-    return 0;
-}
-
-static void*
-_task_core_1(void *argv)
-{
-    rpc_msg_channel_t       channel_id = RPC_MSG_CHANNEL_01;
-    rpc_msg_box_t           msg_box[5];
-
-    rpc_binder_init(channel_id, (uint32_t*)&msg_box, sizeof(msg_box[5]));
-
-    while(1)
-    {
-
-        pthread_mutex_lock(&g_log_mtx);
-        pthread_mutex_unlock(&g_log_mtx);
-
-        Sleep((rand() >> 5) & 0x3);
-    }
-
-    pthread_exit(NULL);
-    return 0;
-}
-
-static void
+static void __attribute__ ((unused))
 _test_rpc_binder()
 {
-
-    pthread_mutex_init(&g_log_mtx, 0);
-
-#if 0
-    {
-        pthread_t   t1, t2;
-        pthread_create(&t1, 0, _task_core_0, 0);
-        pthread_create(&t2, 0, _task_core_1, 0);
-    }
-#else
-
     #define MSG_BOX_NUM     5
     int                 i;
     rpc_state_t         state = RPC_STATE_OK;
@@ -153,16 +102,18 @@ _test_rpc_binder()
         state = rpc_binder_recv(RPC_MSG_CHANNEL_00);
     } while( state != RPC_STATE_Q_EMPTY );
 
-#endif
-
     return;
 }
+
+
 
 int main()
 {
     srand(time(NULL));
     // _test_rpc_msg();
-    _test_rpc_binder();
+    // _test_rpc_binder();
+
+    test_rpc_simulation();
 
     return 0;
 }
