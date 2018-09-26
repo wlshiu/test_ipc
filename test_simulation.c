@@ -32,6 +32,8 @@
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
+#define ENABLE_IRQ_CASE
+
 #define MSG_BOX_NUM_MAX         5
 
 typedef enum msg_chnnl
@@ -45,6 +47,9 @@ typedef enum msg_chnnl
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
+
+#define err(str, argv...)       do{ printf("%s[%d]" str, __func__, __LINE__, ##argv); while(1); }while(0)
+
 #define DECLARE_PRECEDURSE_SERVICE(id)                              \
     static void                                                     \
     _procedurse_server_##id (                                       \
@@ -52,7 +57,7 @@ typedef enum msg_chnnl
         pthread_mutex_lock(&g_log_mtx);                             \
         fprintf((pBox->data.debug.core_id)                          \
                 ? g_pfile[CORE_ID_1] : g_pfile[CORE_ID_0],          \
-            "[%s][core %d, x%x] procedurse_id= %X, num= %x \n",     \
+            "[%s][core %d, x%x] procedurse_id= %X, num= %d \n",     \
             __func__,                                               \
             pBox->data.debug.core_id, (uint32_t)pTunnel_info,       \
             pBox->procedurse_id,                                    \
@@ -83,6 +88,7 @@ typedef struct core_info
 {
     core_id_t       core_id;
     uint32_t        channel_id[MSG_CHNNL_TOTAL];
+    rpc_msg_box_t   *pMsg_boxes;
 
     irq_info_t      *pInfo_irq;
 
@@ -119,12 +125,18 @@ DECLARE_PRECEDURSE_SERVICE(F);
 static void
 IPC_IRQHandler_core0(void)
 {
+    #if defined(ENABLE_IRQ_CASE)
+    rpc_binder_recv(g_core_info[CORE_ID_0].channel_id[MSG_CHNNL_RX]);
+    #endif
     return;
 }
 
 static void
 IPC_IRQHandler_core1(void)
 {
+    #if defined(ENABLE_IRQ_CASE)
+    rpc_binder_recv(g_core_info[CORE_ID_1].channel_id[MSG_CHNNL_RX]);
+    #endif
     return;
 }
 
@@ -146,6 +158,8 @@ _task_irq_trigger(void *argv)
             pInfo_irq->cb_irq();
 
         pthread_mutex_unlock(&irq_mtx);
+
+        Sleep((rand() >> 5) & 0x1);
     }
 
     pthread_exit(NULL);
@@ -179,12 +193,12 @@ _task_core(void *argv)
     uint32_t                cnt = 0;
     core_info_t             *pInfo_core = (core_info_t*)argv;
     rpc_msg_channel_t       channel_id[2];
-    rpc_msg_box_t           msg_box[MSG_BOX_NUM_MAX];
+    rpc_msg_box_t           *pMsg_boxes = pInfo_core->pMsg_boxes;
 
     channel_id[MSG_CHNNL_TX] = pInfo_core->channel_id[MSG_CHNNL_TX];
     channel_id[MSG_CHNNL_RX] = pInfo_core->channel_id[MSG_CHNNL_RX];
 
-    rpc_binder_init(channel_id[MSG_CHNNL_TX], (uint32_t*)&msg_box, sizeof(msg_box));
+    rpc_binder_init(channel_id[MSG_CHNNL_TX], (uint32_t*)&pMsg_boxes, sizeof(rpc_msg_box_t)*MSG_BOX_NUM_MAX);
 
     rpc_binder_register_send_handler(channel_id[MSG_CHNNL_TX],
                                      _send_signal, pInfo_core->pInfo_irq);
@@ -209,14 +223,22 @@ _task_core(void *argv)
     while(1)
     {
         // rpc_state_t         state = RPC_STATE_OK;
-        rpc_msg_box_t       *pCur_box = &msg_box[cnt % MSG_BOX_NUM_MAX];
+        rpc_msg_box_t       *pCur_box = &pMsg_boxes[cnt % MSG_BOX_NUM_MAX];
 
         // pop
+        #if !defined(ENABLE_IRQ_CASE)
         rpc_binder_recv(channel_id[MSG_CHNNL_RX]);
+        #endif
 
         // push
         if( rpc_binder_is_full(channel_id[MSG_CHNNL_TX]) )
+        {
+            #if defined(ENABLE_IRQ_CASE)
+            _send_signal((void*)pInfo_core->pInfo_irq);
+            Sleep((rand() >> 5) & 0x1);
+            #endif
             continue;
+        }
 
         pCur_box->procedurse_id           = cnt % RPC_BINDER_PROCEDURE_TOTAL;
         pCur_box->data.debug.core_id      = pInfo_core->core_id;
@@ -238,6 +260,7 @@ _task_core(void *argv)
 void __attribute__ ((unused))
 test_rpc_simulation()
 {
+    int         cnt = 0;
 
     g_pfile[CORE_ID_0] = fopen("core0.log", "w");
     g_pfile[CORE_ID_1] = fopen("core1.log", "w");
@@ -251,17 +274,20 @@ test_rpc_simulation()
 
     {
         pthread_t   t1, t2, t3;
+        rpc_msg_box_t           msg_box[MSG_CHNNL_TOTAL][MSG_BOX_NUM_MAX];
 
         // core 0
         g_core_info[CORE_ID_0].core_id                  = CORE_ID_0;
-        g_core_info[CORE_ID_0].pInfo_irq                = &g_irq_info[CORE_ID_0];
+        g_core_info[CORE_ID_0].pInfo_irq                = &g_irq_info[CORE_ID_1];
+        g_core_info[CORE_ID_0].pMsg_boxes               = msg_box[CORE_ID_0];
         g_core_info[CORE_ID_0].channel_id[MSG_CHNNL_TX] = RPC_MSG_CHANNEL_00;
         g_core_info[CORE_ID_0].channel_id[MSG_CHNNL_RX] = RPC_MSG_CHANNEL_01;
         pthread_create(&t1, 0, _task_core, &g_core_info[CORE_ID_0]);
 
         // core 1
         g_core_info[CORE_ID_1].core_id                  = CORE_ID_1;
-        g_core_info[CORE_ID_1].pInfo_irq                = &g_irq_info[CORE_ID_1];
+        g_core_info[CORE_ID_1].pInfo_irq                = &g_irq_info[CORE_ID_0];
+        g_core_info[CORE_ID_1].pMsg_boxes               = msg_box[CORE_ID_1];
         g_core_info[CORE_ID_1].channel_id[MSG_CHNNL_TX] = RPC_MSG_CHANNEL_01;
         g_core_info[CORE_ID_1].channel_id[MSG_CHNNL_RX] = RPC_MSG_CHANNEL_00;
         pthread_create(&t2, 0, _task_core, &g_core_info[CORE_ID_1]);
@@ -282,7 +308,53 @@ test_rpc_simulation()
     if( g_pfile[CORE_ID_0] )    fclose(g_pfile[CORE_ID_0]);
     if( g_pfile[CORE_ID_1] )    fclose(g_pfile[CORE_ID_1]);
 
+    do {
+        FILE        *fin = 0;
+        char        file_name[64] = {0};
+        uint8_t     *pBuf = 0;
+        uint8_t     *pCur = 0;
+        uint32_t    filesize = 0;
 
-//    while(1)        Sleep(10000);
+        snprintf(file_name, sizeof(file_name), "core%d.log", cnt);
+        if( !(fin = fopen(file_name, "rb")) )
+        {
+            err("%s", "open fail \n");
+        }
+
+        fseek(fin, 0, SEEK_END);
+        filesize = ftell(fin);
+        fseek(fin, 0, SEEK_SET);
+
+        if( !(pBuf = malloc(filesize)) )
+        {
+            err("malloc %d fail \n", filesize);
+        }
+        fread(pBuf, 1, filesize, fin);
+        if( fin )   fclose(fin);
+
+        for(int i = 0; i < filesize; i++)
+        {
+            if( pBuf[i] == '\n' )
+                pBuf[i] = '\0';
+        }
+
+        pCur = pBuf;
+        while( pCur < (pBuf + filesize) )
+        {
+            int     a = 0, b = 0, c = 0, d = 0, e = 0;
+
+            sscanf((const char*)pCur, "[_procedurse_server_%d][core %d, x%d] procedurse_id= %d, num= %d",
+                   &a, &e, &b, &c, &d);
+
+            if( a != b || a != c || a != (d & 0xF) )
+            {
+                err("compare fail: %s\n", pCur);
+            }
+            pCur += strlen((const char*)pCur) + 1;
+        }
+
+        if( pBuf )  free(pBuf);
+    } while( ++cnt < 2 );
+
 }
 

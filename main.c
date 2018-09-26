@@ -39,7 +39,6 @@ typedef struct msg_box
 extern void test_rpc_simulation();
 
 
-
 static msg_box_t            g_msg[RPC_BINDER_MSG_NUM_MAX];
 
 
@@ -109,6 +108,7 @@ _test_rpc_binder()
 
 int main()
 {
+
     srand(time(NULL));
     // _test_rpc_msg();
     // _test_rpc_binder();
