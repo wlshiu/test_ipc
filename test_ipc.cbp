@@ -14,6 +14,8 @@
 				<Compiler>
 					<Add option="-g" />
 					<Add directory="../../../../_portable/codeblocks-17.12mingw/MinGW/include" />
+					<Add directory="../test_ipc" />
+					<Add directory="lib/include" />
 				</Compiler>
 				<Linker>
 					<Add library="../../../../_portable/codeblocks-17.12mingw/MinGW/lib/libpthread.a" />
@@ -37,22 +39,45 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
+		<Unit filename="lib/common/llist.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lib/include/llist.h" />
+		<Unit filename="lib/include/rpmsg_compiler.h" />
+		<Unit filename="lib/include/rpmsg_default_config.h" />
+		<Unit filename="lib/include/rpmsg_env.h" />
+		<Unit filename="lib/include/rpmsg_lite.h" />
+		<Unit filename="lib/include/rpmsg_ns.h" />
+		<Unit filename="lib/include/rpmsg_queue.h" />
+		<Unit filename="lib/include/virtio_ring.h" />
+		<Unit filename="lib/include/virtqueue.h" />
+		<Unit filename="lib/rpmsg_lite/porting/environment/freertos_warp.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lib/rpmsg_lite/porting/environment/freertos_warp.h" />
+		<Unit filename="lib/rpmsg_lite/porting/environment/rpmsg_env_freertos.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lib/rpmsg_lite/porting/platform/rpmsg_platform.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lib/rpmsg_lite/rpmsg_lite.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lib/rpmsg_lite/rpmsg_ns.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lib/rpmsg_lite/rpmsg_queue.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lib/virtio/virtqueue.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="rbuf.h" />
-		<Unit filename="rpc_binder.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="rpc_binder.h" />
-		<Unit filename="rpc_err.h" />
-		<Unit filename="rpc_msg.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="rpc_msg.h" />
-		<Unit filename="test_simulation.c">
-			<Option compilerVar="CC" />
-		</Unit>
+		<Unit filename="rpmsg_config.h" />
+		<Unit filename="rpmsg_platform.h" />
 		<Extensions>
 			<code_completion />
 			<envvars />

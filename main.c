@@ -1,119 +1,131 @@
 /*
- * Copyright (c) 2018-, Wei-Lun Hsu. All Rights Reserved.
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation, version 3 of the
- * License.
- * This program is distributed in the hope that it will be
- * useful, but WITHOUT ANY WARRANTY; without even the implied
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
- * PURPOSE.
- * See the GNU General Public License version 3 for more details.
- */
-/** @file main.c
+ * Copyright 2016 Freescale Semiconductor, Inc. All rights reserved.
  *
- * @author Wei-Lun Hsu
- * @version 0.1
- * @date 2018/09/20
- * @license GNU General Public License version 3
- * @description
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. Neither the name of Mentor Graphics Corporation nor the names of its
+ *    contributors may be used to endorse or promote products derived from this
+ *    software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include "pthread.h"
 #include <windows.h>
+#include "pthread.h"
+#include "assert.h"
+#include "rpmsg_lite.h"
+#include "rpmsg_queue.h"
+#include "rpmsg_ns.h"
+//#include "FreeRTOS.h"
+//#include "task.h"
+//#include "string.h"
+#include "stdint.h"
+//#include "board.h"
+//#include "debug_console_imx.h"
 
-#include "rpc_binder.h"
+//#define REMOTE_DEFAULT_EPT (TC_REMOTE_EPT_ADDR)
+
+#define TC_LOCAL_EPT_ADDR       (30)
+#define TC_REMOTE_EPT_ADDR      (40)
+
+#define RL_PLATFORM_LINK_ID     0
 
 
-typedef struct msg_box
+static uint8_t      g_share_buf[512 << 10] = {0};
+void* rpmsg_lite_base = (void*)g_share_buf;//BOARD_SHARED_MEMORY_BASE;
+
+struct rpmsg_lite_endpoint  *ctrl_ept;
+rpmsg_queue_handle          ctrl_q;
+struct rpmsg_lite_instance  *my_rpmsg = NULL;
+
+#define TASK_STACK_SIZE         300
+
+/*
+ * MU Interrrupt ISR
+ */
+void BOARD_MU_HANDLER (void)
 {
-    uint32_t    cmd;
-    uint32_t    data;
-
-} msg_box_t;
-
-
-extern void test_rpc_simulation();
-
-
-static msg_box_t            g_msg[RPC_BINDER_MSG_NUM_MAX];
-
-
-#define RPC_MSG_CHANNEL_CORE0_2_CORE1       RPC_MSG_CHANNEL_00
-
-static void __attribute__ ((unused))
-_test_rpc_msg(void)
-{
-    int                 i;
-    rpc_state_t         state = RPC_STATE_OK;
-
-    rpc_msg_init(RPC_MSG_CHANNEL_CORE0_2_CORE1, RPC_MSG_MAX_QUEUE_SIZE);
-
-    for(i = 0; i < RPC_MSG_MAX_QUEUE_SIZE + 1; i++)
-    {
-        g_msg[i].cmd  = 0xaaaaaaaa;
-        g_msg[i].data = i;
-        state = rpc_msg_push(RPC_MSG_CHANNEL_CORE0_2_CORE1, &g_msg[i], 0);
-        printf("state = %d\n", state);
-        printf("\n");
-    }
-
-    for(i = 0; i < RPC_MSG_MAX_QUEUE_SIZE; ++i)
-    {
-        msg_box_t       *pMsg_box = 0;
-
-        state = rpc_msg_pop(RPC_MSG_CHANNEL_CORE0_2_CORE1, (void**)&pMsg_box, 0);
-        printf("state = %d\n", state);
-        printf("x%x, %d\n", pMsg_box->cmd, pMsg_box->data);
-    }
-
-    return;
+    /*
+     * calls into rpmsg_handler provided by middleware
+     */
+//    rpmsg_handler();
+    printf("%s[%d]\n", __FILE__, __LINE__);
 }
 
-static void __attribute__ ((unused))
-_test_rpc_binder()
+void* test(void *unused)
 {
-    #define MSG_BOX_NUM     5
-    int                 i;
-    rpc_state_t         state = RPC_STATE_OK;
-    rpc_msg_box_t       msg_box[MSG_BOX_NUM];
+    int             recved = 0;
+    unsigned long   src;
+    char            buf[256];
+    int             len;
 
-    rpc_binder_init(RPC_MSG_CHANNEL_00, (uint32_t*)&msg_box, sizeof(msg_box));
+//    hardware_init();
+//    printf("Hardware initialized\r\n");
 
-    for(i = 0; i < RPC_BINDER_MSG_NUM_MAX; i++)
+    env_init();
+
+    my_rpmsg = rpmsg_lite_remote_init(rpmsg_lite_base, RL_PLATFORM_LINK_ID, RL_NO_FLAGS);
+    ctrl_q   = rpmsg_queue_create(my_rpmsg);
+    ctrl_ept = rpmsg_lite_create_ept(my_rpmsg, TC_LOCAL_EPT_ADDR, rpmsg_queue_rx_cb, ctrl_q);
+    printf("Waiting for master to get ready...\r\n");
+
+    while(!rpmsg_lite_is_link_up(my_rpmsg))
     {
-        rpc_msg_box_t       *pCur_box = &msg_box[i % MSG_BOX_NUM];
-
-        pCur_box->procedurse_id     = RPC_BINDER_PROCEDURE_05;
-        pCur_box->data.def.param[0] = i;
-        pCur_box->data.def.param[1] = 0x1111;
-        state = rpc_binder_send(RPC_MSG_CHANNEL_00, pCur_box);
-        if( state == RPC_STATE_Q_FULL )
-            break;
-
-        printf("%02d-th, state = %d\n", i, state);
+        printf(".");
+        Sleep(10);
     }
 
-    do {
-        state = rpc_binder_recv(RPC_MSG_CHANNEL_00);
-    } while( state != RPC_STATE_Q_EMPTY );
+    printf("Sending name service announcement to Linux...\r\n");
+    rpmsg_ns_announce(my_rpmsg, ctrl_ept, "rpmsg-openamp-demo-channel", RL_NS_CREATE);
+    printf("Waiting for any messages from Linux...\r\n");
 
-    return;
+    while(1)
+    {
+        rpmsg_queue_recv(my_rpmsg, ctrl_q, &src, (char*)buf, 256, &recved, RL_BLOCK);
+        printf("\n\n\rFrom endpoint %d received %d bytes:\n\r", (int)src, recved);
+        printf(buf);
+
+        len = sprintf(buf, "Oh you don't say number %d!", (int)src);
+        printf("\n\n\rSending %d bytes to endpoint %d:\n\r ", len, src);
+        printf(buf);
+
+        rpmsg_lite_send(my_rpmsg, ctrl_ept, src, buf, len, RL_BLOCK);
+    }
+
+
+    rpmsg_lite_destroy_ept(my_rpmsg, ctrl_ept);
+    rpmsg_queue_destroy(my_rpmsg, ctrl_q);
+    rpmsg_lite_deinit(my_rpmsg);
+
+
+    while (1)
+        asm("nop");
 }
 
-
-
-int main()
+int main(void)
 {
+    pthread_t   t1;
 
-    srand(time(NULL));
-    // _test_rpc_msg();
-    // _test_rpc_binder();
+    pthread_create(&t1, 0, test, 0);
 
-    test_rpc_simulation();
-
+    pthread_join(t1, 0);
     return 0;
 }
+
+
