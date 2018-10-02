@@ -22,7 +22,18 @@ extern "C" {
 #if !defined(WIN32)
 #include <metal/system/@PROJECT_SYSTEM@/mutex.h>
 #else
-#define metal_mutex_t       unsigned long
+
+#include "pthread.h"
+#define metal_mutex_t       pthread_mutex_t
+
+#define __metal_mutex_init(m)           pthread_mutex_init(m, 0)
+#define __metal_mutex_deinit(m)         pthread_mutex_destroy(m)
+#define __metal_mutex_try_acquire(m)    pthread_mutex_lock(m)
+#define __metal_mutex_acquire(m)        pthread_mutex_lock(m)
+#define __metal_mutex_release(m)        pthread_mutex_unlock(m)
+#define __metal_mutex_is_acquired(m)    0
+
+
 #endif
 
 /**
@@ -31,7 +42,7 @@ extern "C" {
  */
 static inline void metal_mutex_init(metal_mutex_t *mutex)
 {
-//	__metal_mutex_init(mutex);
+	__metal_mutex_init(mutex);
 }
 
 /**
@@ -40,7 +51,7 @@ static inline void metal_mutex_init(metal_mutex_t *mutex)
  */
 static inline void metal_mutex_deinit(metal_mutex_t *mutex)
 {
-//	__metal_mutex_deinit(mutex);
+    __metal_mutex_deinit(mutex);
 }
 
 /**
@@ -50,7 +61,7 @@ static inline void metal_mutex_deinit(metal_mutex_t *mutex)
  */
 static inline int metal_mutex_try_acquire(metal_mutex_t *mutex)
 {
-	return 0;//__metal_mutex_try_acquire(mutex);
+	return __metal_mutex_try_acquire(mutex);
 }
 
 /**
@@ -59,7 +70,7 @@ static inline int metal_mutex_try_acquire(metal_mutex_t *mutex)
  */
 static inline void metal_mutex_acquire(metal_mutex_t *mutex)
 {
-//	__metal_mutex_acquire(mutex);
+	__metal_mutex_acquire(mutex);
 }
 
 /**
@@ -69,7 +80,7 @@ static inline void metal_mutex_acquire(metal_mutex_t *mutex)
  */
 static inline void metal_mutex_release(metal_mutex_t *mutex)
 {
-//	__metal_mutex_release(mutex);
+	__metal_mutex_release(mutex);
 }
 
 /**
@@ -79,7 +90,7 @@ static inline void metal_mutex_release(metal_mutex_t *mutex)
  */
 static inline int metal_mutex_is_acquired(metal_mutex_t *mutex)
 {
-	return 0;//__metal_mutex_is_acquired(mutex);
+	return __metal_mutex_is_acquired(mutex);
 }
 
 /** @} */
