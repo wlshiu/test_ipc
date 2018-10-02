@@ -6,7 +6,7 @@
 
 #include <windows.h>
 
-#include "env/env.h"
+
 #include "core_info.h"
 //=============================================================================
 //                  Constant Definition
@@ -44,8 +44,6 @@ _task_core_0(void *argv)
 {
     core_attr_t     *pCore_attr = (core_attr_t*)argv;
 
-    env_pair_core(pCore_attr->core_id, pthread_self());
-
     while(1)
     {
 
@@ -59,7 +57,7 @@ _task_core_0(void *argv)
 static void*
 _task_core_1(void *argv)
 {
-    env_pair_core(CORE_ID_1, pthread_self());
+
     while(1)
     {
 
@@ -77,7 +75,7 @@ int main()
     pthread_t   t0, t1;
 
     srand(clock());
-    init_rtos_wrap();
+
 
     memset(&g_core_attr, 0x0, sizeof(g_core_attr));
 

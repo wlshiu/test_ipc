@@ -54,4 +54,5 @@ dkms.conf
 *.layout
 obj/*
 bin/*
+**/*/CMakeLists.txt
 
