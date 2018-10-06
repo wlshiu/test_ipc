@@ -2,12 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <pthread.h>
 
 #include <windows.h>
 
-#include "env/env.h"
-#include "core_info.h"
+#include "core_master.h"
+#include "core_remote.h"
+
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
@@ -24,80 +24,37 @@
 //                  Global Data Definition
 //=============================================================================
 core_attr_t         g_core_attr[CORE_ID_TOTAL];
+
 //=============================================================================
 //                  Private Function Definition
 //=============================================================================
-static void
-_isr_core_0(void)
-{
-    return;
-}
 
-static void
-_isr_core_1(void)
-{
-    return;
-}
-
-static void*
-_task_core_0(void *argv)
-{
-    core_attr_t     *pCore_attr = (core_attr_t*)argv;
-
-    env_pair_core(pCore_attr->core_id, pthread_self());
-
-    while(1)
-    {
-
-        Sleep((rand() >> 5)& 0x3);
-    }
-
-    pthread_exit(0);
-    return 0;
-}
-
-static void*
-_task_core_1(void *argv)
-{
-    env_pair_core(CORE_ID_1, pthread_self());
-    while(1)
-    {
-
-
-        Sleep((rand() >> 5)& 0x3);
-    }
-    pthread_exit(0);
-    return 0;
-}
 //=============================================================================
 //                  Public Function Definition
 //=============================================================================
 int main()
 {
-    pthread_t   t0, t1;
-
     srand(clock());
-    init_rtos_wrap();
 
     memset(&g_core_attr, 0x0, sizeof(g_core_attr));
 
-    g_core_attr[CORE_ID_0].core_id = CORE_ID_0;
-    g_core_attr[CORE_ID_0].pf_irs  = _isr_core_0;
+    //--------------------------------
+    // assign basic info
+    g_core_attr[CORE_ID_MASTER].core_id     = CORE_ID_MASTER;
+    g_core_attr[CORE_ID_REMOTE_1].core_id   = CORE_ID_REMOTE_1;
 
-    g_core_attr[CORE_ID_1].core_id = CORE_ID_1;
-    g_core_attr[CORE_ID_1].pf_irs  = _isr_core_1;
+    //---------------------------------------
+    // initialize cores
+    core_master_init(&g_core_attr[CORE_ID_MASTER]);
+    core_remote_init(&g_core_attr[CORE_ID_REMOTE_1]);
 
     core_irq_simulator(&g_core_attr[0], CORE_ID_TOTAL);
 
-
     //------------------------------
     // start
-    pthread_create(&t0, 0, _task_core_0, &g_core_attr[CORE_ID_0]);
-    pthread_create(&t1, 0, _task_core_1, &g_core_attr[CORE_ID_1]);
+    core_master_boot(&g_core_attr[0], CORE_ID_TOTAL);
 
-
-    pthread_join(t0, 0);
-    pthread_join(t1, 0);
+    while(1)    Sleep((DWORD)-1);
 
     return 0;
 }

@@ -15,13 +15,7 @@
 					<Add option="-g" />
 					<Add directory="../../../../_portable/codeblocks-17.12mingw/MinGW/include" />
 					<Add directory="../test_ipc" />
-					<Add directory="open-amp" />
-					<Add directory="open-amp/porting/env/freertos" />
-					<Add directory="open-amp/common" />
-					<Add directory="open-amp/porting" />
-					<Add directory="open-amp/rpmsg" />
-					<Add directory="open-amp/virtio" />
-					<Add directory="open-amp/porting/platform" />
+					<Add directory="openamp" />
 				</Compiler>
 				<Linker>
 					<Add library="../../../../_portable/codeblocks-17.12mingw/MinGW/lib/libpthread.a" />
@@ -49,70 +43,60 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="core_info.h" />
+		<Unit filename="core_master.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="core_master.h" />
+		<Unit filename="core_remote.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="core_remote.h" />
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="open-amp/common/hil/hil.c">
+		<Unit filename="openamp/common/hil/hil.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="open-amp/common/hil/hil.h" />
-		<Unit filename="open-amp/common/llist/llist.c">
+		<Unit filename="openamp/common/hil/hil.h" />
+		<Unit filename="openamp/common/llist/llist.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="open-amp/common/llist/llist.h" />
-		<Unit filename="open-amp/common/shm/sh_mem.c">
+		<Unit filename="openamp/common/llist/llist.h" />
+		<Unit filename="openamp/common/shm/sh_mem.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="open-amp/common/shm/sh_mem.h" />
-		<Unit filename="open-amp/porting/config/config.c">
+		<Unit filename="openamp/common/shm/sh_mem.h" />
+		<Unit filename="openamp/porting/env.h" />
+		<Unit filename="openamp/porting/env_ops.h" />
+		<Unit filename="openamp/porting/env_win32.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="open-amp/porting/config/config.h" />
-		<Unit filename="open-amp/porting/env/env.h" />
-		<Unit filename="open-amp/porting/env/freertos/freertos_warp.c">
+		<Unit filename="openamp/porting/platform_info.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="open-amp/porting/env/freertos/freertos_warp.h" />
-		<Unit filename="open-amp/porting/env/freertos/rpmsg_porting.c">
+		<Unit filename="openamp/porting/platform_ops.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="open-amp/porting/env/freertos/rpmsg_porting.h" />
-		<Unit filename="open-amp/porting/platform/platform.c">
+		<Unit filename="openamp/rpmsg/remote_device.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="open-amp/porting/platform/platform.h" />
-		<Unit filename="open-amp/porting/platform/platform_info.c">
+		<Unit filename="openamp/rpmsg/rpmsg.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="open-amp/porting/platform/rpmsg_platform_porting.h" />
-		<Unit filename="open-amp/rpmsg/remote_device.c">
+		<Unit filename="openamp/rpmsg/rpmsg.h" />
+		<Unit filename="openamp/rpmsg/rpmsg_core.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="open-amp/rpmsg/rpmsg.c">
+		<Unit filename="openamp/rpmsg/rpmsg_core.h" />
+		<Unit filename="openamp/virtio/virtio.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="open-amp/rpmsg/rpmsg.h" />
-		<Unit filename="open-amp/rpmsg/rpmsg_core.c">
+		<Unit filename="openamp/virtio/virtio.h" />
+		<Unit filename="openamp/virtio/virtio_ring.h" />
+		<Unit filename="openamp/virtio/virtqueue.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="open-amp/rpmsg/rpmsg_core.h" />
-		<Unit filename="open-amp/rpmsg/rpmsg_ext.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="open-amp/rpmsg/rpmsg_ext.h" />
-		<Unit filename="open-amp/rpmsg/rpmsg_rtos.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="open-amp/rpmsg/rpmsg_rtos.h" />
-		<Unit filename="open-amp/virtio/virtio.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="open-amp/virtio/virtio.h" />
-		<Unit filename="open-amp/virtio/virtio_ring.h" />
-		<Unit filename="open-amp/virtio/virtqueue.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="open-amp/virtio/virtqueue.h" />
+		<Unit filename="openamp/virtio/virtqueue.h" />
 		<Extensions>
 			<code_completion />
 			<envvars />

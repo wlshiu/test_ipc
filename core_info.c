@@ -39,7 +39,7 @@ _task_irq(void *argv)
     core_attr_t             *pAttr_core = (core_attr_t*)argv;
     pthread_mutex_t         irq_mtx;
 
-    pthread_cond_init(&pAttr_core->cond, NULL);
+    pthread_cond_init(&pAttr_core->irq_cond, NULL);
     pthread_mutex_init(&irq_mtx, NULL);
 
     pthread_detach(pthread_self());
@@ -47,7 +47,7 @@ _task_irq(void *argv)
     while(1)
     {
         pthread_mutex_lock(&irq_mtx);
-        pthread_cond_wait(&pAttr_core->cond, &irq_mtx);
+        pthread_cond_wait(&pAttr_core->irq_cond, &irq_mtx);
 
         if( pAttr_core->pf_irs )
             pAttr_core->pf_irs();

@@ -1,51 +1,36 @@
 /**
  * Copyright (c) 2018 Wei-Lun Hsu. All Rights Reserved.
  */
-/** @file core_info.h
+/** @file core_master.h
  *
  * @author Wei-Lun Hsu
  * @version 0.1
- * @date 2018/10/01
+ * @date 2018/10/03
  * @license
  * @description
  */
 
-#ifndef __core_info_H_wBZxsyBn_lOzr_H6P8_s8PK_uEN0hHD2DlBM__
-#define __core_info_H_wBZxsyBn_lOzr_H6P8_s8PK_uEN0hHD2DlBM__
+#ifndef __core_master_H_wrLswoUt_lPrO_Hmer_si9W_uF4NsBSlWBBc__
+#define __core_master_H_wrLswoUt_lPrO_Hmer_si9W_uF4NsBSlWBBc__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 
-#include <stdint.h>
-#include <pthread.h>
-
+#include "core_info.h"
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
-typedef enum core_id
-{
-    CORE_ID_MASTER       = 0,
-    CORE_ID_REMOTE_1,
-    CORE_ID_TOTAL,
-} core_id_t;
+
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
-#define err(str, argv...)           do{ printf("%s[%d] " str, __func__, __LINE__, ##argv); while(1);}while(0)
+
 //=============================================================================
 //                  Structure Definition
 //=============================================================================
-typedef void (*cb_irs)(void);
 
-typedef struct core_attr
-{
-    core_id_t           core_id;
-    pthread_cond_t      irq_cond;
-    cb_irs              pf_irs;
-
-} core_attr_t;
 //=============================================================================
 //                  Global Data Definition
 //=============================================================================
@@ -58,10 +43,14 @@ typedef struct core_attr
 //                  Public Function Definition
 //=============================================================================
 int
-core_irq_simulator(
+core_master_init(
+    core_attr_t     *pAttr_core);
+
+
+int
+core_master_boot(
     core_attr_t     *pAttr,
     uint32_t        core_num);
-
 
 
 #ifdef __cplusplus
