@@ -82,13 +82,14 @@ struct vring_used {
     struct vring_used_elem ring[1];
 };
 
-struct vring {
+typedef struct vring
+{
     unsigned int num;
 
     struct vring_desc *desc;
     struct vring_avail *avail;
     struct vring_used *used;
-};
+} vring_t;
 
 /* The standard layout for the ring is a continuous chunk of memory which
  * looks like this.  We assume num is a power of 2.

@@ -74,9 +74,7 @@
 		<Unit filename="openamp/porting/platform_info.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="openamp/porting/platform_ops.c">
-			<Option compilerVar="CC" />
-		</Unit>
+		<Unit filename="openamp/porting/platform_info.h" />
 		<Unit filename="openamp/rpmsg/remote_device.c">
 			<Option compilerVar="CC" />
 		</Unit>

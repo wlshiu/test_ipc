@@ -29,56 +29,36 @@
 /**************************************************************************
  * FILE NAME
  *
- *       platform_ops.c
+ *       platform_info.h
+ *
+ * COMPONENT
+ *
+ *       OpenAMP
  *
  * DESCRIPTION
  *
- *       This file is the Implementation of IPC hardware layer interface
+ * This file provides function prototypes of platform.c.
  *
  **************************************************************************/
 
+#ifndef platform_info_H_
+#define platform_info_H_
+
 #include "common/hil/hil.h"
 
-static int _enable_interrupt(struct proc_vring *vring_hw)
-{
-    return 0;
-}
+int platform_get_processor_info(struct hil_proc *proc, int cpu_id);
 
-static void _notify(int cpu_id, struct proc_intr *intr_info)
-{
-    /* As Linux suggests, use MU->Data Channle 1 as communication channel */
-    return;
-}
+int platform_get_processor_for_fw(char *fw_name);
 
-static int _boot_cpu(int cpu_id, unsigned int load_addr)
-{
-    /* not imlemented */
-    return 0;
-}
+int platform_set_ops(
+    unsigned long               cpu_id,
+    struct hil_platform_ops     *pOps);
 
-static void _shutdown_cpu(int cpu_id)
-{
-    /* not imlemented */
-    return;
-}
 
-struct hil_platform_ops     def_processor_ops =
-{
-    .enable_interrupt   = _enable_interrupt,
-    .notify             = _notify,
-    .boot_cpu           = _boot_cpu,
-    .shutdown_cpu       = _shutdown_cpu,
-};
+int
+platform_set_vring_intr_priv_data(
+    unsigned long   cpu_id,
+    void            *pPriv_data);
 
-/**
- * rpmsg_handler
- *
- * Called directly from ISR. Convert IRQ number to channel
- * number and invoke 'env_isr'.
- *
- */
-void rpmsg_isr(void)
-{
-    return;
-}
 
+#endif /* PLATFORM_H_ */

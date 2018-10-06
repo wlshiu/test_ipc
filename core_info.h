@@ -45,6 +45,8 @@ typedef struct core_attr
     pthread_cond_t      irq_cond;
     cb_irs              pf_irs;
 
+    pthread_cond_t      *pCores_irq_cond;
+
 } core_attr_t;
 //=============================================================================
 //                  Global Data Definition

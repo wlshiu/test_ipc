@@ -13,9 +13,10 @@
 
 #include <windows.h>
 #include "core_remote.h"
-
-#include "common/hil/hil.h"
 #include "rpmsg/rpmsg.h"
+#include "common/hil/hil.h"
+#include "porting/platform_info.h"
+
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
@@ -39,68 +40,40 @@ static pthread_mutex_t          g_mtx_rpmsg_rx;
 //=============================================================================
 //                  Private Function Definition
 //=============================================================================
-#if 0
 static int
-_initialize(
-    struct hil_proc     *proc)
+_enable_interrupt(
+    struct proc_vring   *vring_hw)
 {
-    pthread_cond_init(&g_cond_rpmsg_rx, NULL);
-    pthread_mutex_init(&g_mtx_rpmsg_rx, NULL);
     return 0;
 }
 
 static void
-_release(
-    struct hil_proc     *proc)
-{
-    pthread_cond_destroy(&g_cond_rpmsg_rx);
-    pthread_mutex_destroy(&g_mtx_rpmsg_rx);
-    return;
-}
-
-static void
 _notify(
-    struct hil_proc     *proc,
+    int                 cpu_id,
     struct proc_intr    *intr_info)
 {
     /* Trigger IPI (inter-processor interrupt) */
     core_attr_t     *pAttr_core = (core_attr_t*)intr_info->data;
 
-    pthread_cond_signal(&pAttr_core->irq_cond);
+    pthread_cond_signal(pAttr_core->pCores_irq_cond);
     return;
-}
-
-static int
-_poll(
-    struct hil_proc     *proc,
-    int                 nonblock)
-{
-    /* wait irq event */
-    pthread_mutex_lock(&g_mtx_rpmsg_rx);
-    pthread_cond_wait(&g_cond_rpmsg_rx, &g_mtx_rpmsg_rx);
-    pthread_mutex_unlock(&g_mtx_rpmsg_rx);
-
-    hil_notified(proc, (uint32_t)(-1));
-    return 0;
 }
 
 static struct hil_platform_ops  g_core1_proc_ops =
 {
-	.enable_interrupt = 0,
-	.notify           = _notify,
-	.boot_cpu         = 0,
-	.shutdown_cpu     = 0,
-	.poll             = _poll,
-	.alloc_shm        = 0,
-	.release_shm      = 0,
-	.initialize       = _initialize,
-	.release          = _release,
+    .enable_interrupt     = _enable_interrupt,
+    .reg_ipi_after_deinit = 0,
+    .get_status           = 0,
+    .set_status           = 0,
+    .notify               = _notify,
+    .boot_cpu             = 0,
+    .shutdown_cpu         = 0,
 };
-#endif
+
 
 //---------------------------------------------
 static void
-_rpmsg_read_cb(
+_rpmsg_recv_cb(
     struct rpmsg_channel    *rp_chnl,
     void                    *data,
     int                     len,
@@ -154,11 +127,28 @@ static void*
 _task_core_remote(void *argv)
 {
     core_attr_t         *pAttr_core = (core_attr_t*)argv;
+    remote_device_t     *pRDev = 0;
 
     pthread_detach(pthread_self());
 
+    pthread_cond_init(&g_cond_rpmsg_rx, NULL);
+    pthread_mutex_init(&g_mtx_rpmsg_rx, NULL);
+
+    platform_set_ops(pAttr_core->core_id, &g_core1_proc_ops);
+    platform_set_vring_intr_priv_data(pAttr_core->core_id, pAttr_core);
+
+    rpmsg_init(RPMSG_MASTER,
+               &pRDev,
+               _rpmsg_channel_created,
+               _rpmsg_channel_deleted,
+               _rpmsg_recv_cb,
+               RPMSG_REMOTE);
+
     while(1)
     {
+        pthread_mutex_lock(&g_mtx_rpmsg_rx);
+        pthread_cond_wait(&g_cond_rpmsg_rx, &g_mtx_rpmsg_rx);
+
         if( !g_rpmsg_ready )
             continue;
 

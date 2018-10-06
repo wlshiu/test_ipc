@@ -40,13 +40,8 @@
 
 
 #include "common/hil/hil.h"
+#include "rpmsg/rpmsg_core.h"
 
-/* Reference implementation that show cases platform_get_cpu_info and
- platform_get_for_firmware API implementation for Bare metal environment */
-
-#if 0
-extern struct hil_platform_ops proc_ops;
-#endif
 
 #define VIRTIO_RPMSG_F_NS               0 /* RP supports name service notifications */
 
@@ -68,8 +63,8 @@ static uint32_t     g_vring_1[8 << 10] = {0};
 #define VRING0_IPI_VECT                   0
 #define VRING1_IPI_VECT                   1
 
-#define MASTER_CPU_ID                     0
-#define REMOTE_CPU_ID                     1
+#define MASTER_CPU_ID                     RPMSG_MASTER
+#define REMOTE_CPU_ID                     RPMSG_REMOTE
 
 /*
  * 32 MSG (16 rx, 16 tx), 512 bytes each, it is only used when RPMSG driver is working in master mode, otherwise
@@ -123,8 +118,18 @@ static uint32_t         g_share_buf[20 << 10] = {0};
  *   remotes.
  *
  */
-extern struct hil_platform_ops     processor_ops;
-struct hil_proc proc_table [] =
+static struct hil_platform_ops     def_processor_ops =
+{
+    .enable_interrupt     = 0,
+    .reg_ipi_after_deinit = 0,
+    .get_status           = 0,
+    .set_status           = 0,
+    .notify               = 0,
+    .boot_cpu             = 0,
+    .shutdown_cpu         = 0,
+};
+
+struct hil_proc     g_proc_table[] =
 {
     /* CPU node for remote context */
     {
@@ -153,7 +158,7 @@ struct hil_proc proc_table [] =
 
         .num_chnls = 1,
         .chnls     = { {"rpmsg-openamp-demo-channel"} },
-        .ops       = &processor_ops,
+        .ops       = &def_processor_ops,
     },
 
     /* CPU node for remote context */
@@ -183,7 +188,7 @@ struct hil_proc proc_table [] =
 
         .num_chnls = 1,
         .chnls     = { {"rpmsg-openamp-demo-channel"} },
-        .ops       = &processor_ops,
+        .ops       = &def_processor_ops,
 
     }
 };
@@ -203,13 +208,14 @@ struct hil_proc proc_table [] =
  */
 int platform_get_processor_info(struct hil_proc *proc, int cpu_id)
 {
-    int             idx;
+    int     idx;
+    int     cpu_cnt = sizeof(g_proc_table) / sizeof(struct hil_proc);
 
-    for(idx = 0; idx < sizeof(proc_table) / sizeof(struct hil_proc); idx++)
+    for(idx = 0; idx < cpu_cnt; idx++)
     {
-        if((cpu_id == HIL_RSVD_CPU_ID) || (proc_table[idx].cpu_id == cpu_id))
+        if(cpu_id == HIL_RSVD_CPU_ID || g_proc_table[idx].cpu_id == cpu_id)
         {
-            env_memcpy(proc, &proc_table[idx], sizeof(struct hil_proc));
+            env_memcpy(proc, &g_proc_table[idx], sizeof(struct hil_proc));
             return 0;
         }
     }
@@ -220,3 +226,49 @@ int platform_get_processor_for_fw(char *fw_name)
 {
     return 1;
 }
+
+int platform_set_ops(
+    unsigned long               cpu_id,
+    struct hil_platform_ops     *pOps)
+{
+    int     rval = -1;
+    int     cpu_cnt = sizeof(g_proc_table) / sizeof(struct hil_proc);
+
+    for(int i = 0; i < cpu_cnt; ++i)
+    {
+        if( g_proc_table[i].cpu_id == cpu_id )
+        {
+            g_proc_table[i].ops = pOps;
+            rval = 0;
+            break;
+        }
+    }
+
+    return rval;
+}
+
+int
+platform_set_vring_intr_priv_data(
+    unsigned long   cpu_id,
+    void            *pPriv_data)
+{
+    int     rval = -1;
+    int     cpu_cnt = sizeof(g_proc_table) / sizeof(struct hil_proc);
+
+    for(int i = 0; i < cpu_cnt; ++i)
+    {
+        if( g_proc_table[i].cpu_id == cpu_id )
+        {
+            for(int j = 0; j < g_proc_table[i].vdev.num_vrings; ++j)
+            {
+                proc_vring_t     *pVring = &g_proc_table[i].vdev.vring_info[j];
+                pVring->intr_info.data = pPriv_data;
+            }
+
+            rval = 0;
+            break;
+        }
+    }
+    return rval;
+}
+

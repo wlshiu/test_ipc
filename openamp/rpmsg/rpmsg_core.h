@@ -38,7 +38,7 @@
 #include "common/hil/hil.h"
 #include "common/shm/sh_mem.h"
 #include "common/llist/llist.h"
-#include "rpmsg.h"
+
 
 /* Configurable parameters */
 #define RPMSG_BUFFER_SIZE                       512
@@ -108,7 +108,7 @@ typedef void (*rpmsg_chnl_cb_t)(struct rpmsg_channel *rp_chl);
  * @support_ns          - if device supports name service announcement
  *
  */
-struct remote_device {
+typedef struct remote_device {
     struct virtio_device    virt_dev;
     struct virtqueue        *rvq;
     struct virtqueue        *tvq;
@@ -125,7 +125,7 @@ struct remote_device {
     unsigned int    role;
     unsigned int    state;
     int             support_ns;
-};
+} remote_device_t;
 
 /* Core functions */
 int rpmsg_start_ipc(struct remote_device *rdev);

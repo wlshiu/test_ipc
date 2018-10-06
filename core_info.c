@@ -39,7 +39,7 @@ _task_irq(void *argv)
     core_attr_t             *pAttr_core = (core_attr_t*)argv;
     pthread_mutex_t         irq_mtx;
 
-    pthread_cond_init(&pAttr_core->irq_cond, NULL);
+//    pthread_cond_init(&pAttr_core->irq_cond, NULL);
     pthread_mutex_init(&irq_mtx, NULL);
 
     pthread_detach(pthread_self());
@@ -71,6 +71,12 @@ core_irq_simulator(
     pthread_t        t;
     core_attr_t     *pAttr_core_0 = pAttr;
     core_attr_t     *pAttr_core_1 = pAttr + 1;
+
+    pthread_cond_init(&pAttr_core_0->irq_cond, NULL);
+    pthread_cond_init(&pAttr_core_1->irq_cond, NULL);
+
+    pAttr_core_0->pCores_irq_cond = &pAttr_core_1->irq_cond;
+    pAttr_core_1->pCores_irq_cond = &pAttr_core_0->irq_cond;
 
     pthread_create(&t, 0, _task_irq, pAttr_core_0);
     pthread_create(&t, 0, _task_irq, pAttr_core_1);

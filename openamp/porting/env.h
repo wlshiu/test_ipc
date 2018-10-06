@@ -406,6 +406,7 @@ void env_disable_interrupt(unsigned int vector);
 #define WT_CACHE                            (1 << 2)
 
 /* Memory Types */
+#undef MEM_MAPPED
 #define MEM_MAPPED                          (1 << 4)
 #define IO_MAPPED                           (1 << 5)
 #define SHARED_MEM                          (1 << 6)

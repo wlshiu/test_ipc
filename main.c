@@ -48,11 +48,11 @@ int main()
     core_master_init(&g_core_attr[CORE_ID_MASTER]);
     core_remote_init(&g_core_attr[CORE_ID_REMOTE_1]);
 
-    core_irq_simulator(&g_core_attr[0], CORE_ID_TOTAL);
+    core_irq_simulator(&g_core_attr[CORE_ID_MASTER], CORE_ID_TOTAL);
 
     //------------------------------
     // start
-    core_master_boot(&g_core_attr[0], CORE_ID_TOTAL);
+    core_master_boot(&g_core_attr[CORE_ID_MASTER], CORE_ID_TOTAL);
 
     while(1)    Sleep((DWORD)-1);
 
