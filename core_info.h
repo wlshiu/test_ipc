@@ -20,19 +20,20 @@ extern "C" {
 
 #include <stdint.h>
 #include <pthread.h>
+#include "openamp/hil.h"
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
 typedef enum core_id
 {
-    CORE_ID_0       = 0,
-    CORE_ID_1,
+    CORE_ID_MASTER       = 0,
+    CORE_ID_REMOTE_1,
     CORE_ID_TOTAL,
 } core_id_t;
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
-
+#define err(str, argv...)           do{ printf("%s[%d] " str, __func__, __LINE__, ##argv); while(1);}while(0)
 //=============================================================================
 //                  Structure Definition
 //=============================================================================
@@ -41,8 +42,10 @@ typedef void (*cb_irs)(void);
 typedef struct core_attr
 {
     core_id_t           core_id;
-    pthread_cond_t      cond;
+    pthread_cond_t      irq_cond;
     cb_irs              pf_irs;
+
+    struct hil_proc     *pProc_cfg;
 } core_attr_t;
 //=============================================================================
 //                  Global Data Definition

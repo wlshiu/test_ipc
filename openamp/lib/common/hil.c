@@ -179,7 +179,7 @@ struct hil_proc *hil_create_proc(struct hil_platform_ops *ops,
                                  unsigned long cpu_id, void *pdata)
 {
     struct hil_proc *proc = 0;
-#if !defined(WIN32)
+
     proc = metal_allocate_memory(sizeof(struct hil_proc));
     if (!proc)
         return NULL;
@@ -195,7 +195,7 @@ struct hil_proc *hil_create_proc(struct hil_platform_ops *ops,
 
     metal_mutex_init(&proc->lock);
     metal_list_add_tail(&procs, &proc->node);
-#endif
+
     return proc;
 }
 

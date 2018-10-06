@@ -44,6 +44,14 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="core_info.h" />
+		<Unit filename="core_master.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="core_master.h" />
+		<Unit filename="core_remote.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="core_remote.h" />
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />
 		</Unit>
