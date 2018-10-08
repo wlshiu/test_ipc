@@ -46,6 +46,16 @@
 
 #include "common/hil/hil.h"
 
+/* IPI_VECT here defines VRING index */
+typedef enum vring_vect
+{
+    VRING_VECT_0        = 0,
+    VRING_VECT_1,
+
+    VRING_VECT_TOTAL
+} vring_vect_t;
+
+
 int platform_get_processor_info(struct hil_proc *proc, int cpu_id);
 
 int platform_get_processor_for_fw(char *fw_name);
@@ -59,6 +69,12 @@ int
 platform_set_vring_intr_priv_data(
     unsigned long   cpu_id,
     void            *pPriv_data);
+
+
+void
+platform_vring_isr(
+    int     vect_id,
+    void    *data);
 
 
 #endif /* PLATFORM_H_ */

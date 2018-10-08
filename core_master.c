@@ -20,7 +20,8 @@
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
-
+#define LOCAL_VRING_VECT_TX     VRING_VECT_0
+#define LOCAL_VRING_VECT_RX     VRING_VECT_1
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
@@ -44,6 +45,7 @@ static uint32_t                 g_rpmsg_ready = 0;
 static pthread_cond_t           g_cond_rpmsg_rx;
 static pthread_mutex_t          g_mtx_rpmsg_rx;
 
+static vring_isr_info_t         g_vring_isr[VRING_VECT_TOTAL] = {0};
 
 //=============================================================================
 //                  Private Function Definition
@@ -52,6 +54,13 @@ static int
 _enable_interrupt(
     struct proc_vring   *vring_hw)
 {
+    int     vect_id = vring_hw->intr_info.vect_id;
+
+    if( vect_id < VRING_VECT_TOTAL )
+    {
+        g_vring_isr[vect_id].data      = vring_hw;
+        g_vring_isr[vect_id].vring_isr = platform_vring_isr;
+    }
     return 0;
 }
 
@@ -61,9 +70,20 @@ _notify(
     struct proc_intr    *intr_info)
 {
     /* Trigger IPI (inter-processor interrupt) */
-    core_attr_t     *pAttr_core = (core_attr_t*)intr_info->data;
+    do {
+        core_attr_t     *pAttr_core = (core_attr_t*)intr_info->data;
 
-    pthread_cond_signal(pAttr_core->pCores_irq_cond);
+        printf("%d\n", intr_info->vect_id);
+//        if( intr_info->vect_id == LOCAL_VRING_VECT_TX )
+        {
+            pthread_cond_signal(pAttr_core->pCores_irq_cond);
+            break;
+        }
+//        else if( intr_info->vect_id == LOCAL_VRING_VECT_RX )
+        {
+        }
+    } while(0);
+
     return;
 }
 
@@ -88,6 +108,8 @@ _rpmsg_channel_created(
 
 //    rp_ept = rpmsg_create_ept(rp_chnl, rpmsg_read_cb, RPMSG_NULL,
 //                              RPMSG_ADDR_ANY);
+
+    return;
 }
 
 static void
@@ -95,6 +117,8 @@ _rpmsg_channel_deleted(
     struct rpmsg_channel    *rp_chnl)
 {
 //    rpmsg_destroy_ept(rp_ept);
+
+    return;
 }
 
 static void
@@ -118,13 +142,30 @@ _rpmsg_recv_cb(
 #else
     g_rpmsg_ready = 1;
 #endif
+
+    return;
 }
 
+//static void
+//_isr_core_remote(void)
+//{
+//    return;
+//}
 
 static void
 _isr_core_master(void)
 {
-    pthread_cond_signal(&g_cond_rpmsg_rx);
+//    pthread_cond_signal(&g_cond_rpmsg_rx);
+
+    uint32_t                        vect_id = LOCAL_VRING_VECT_RX;
+
+    if( vect_id < VRING_ISR_COUNT )
+    {
+        vring_isr_info_t    *pInfo = &g_vring_isr[vect_id];
+
+        if( pInfo->vring_isr )
+            pInfo->vring_isr(vect_id, pInfo->data);
+    }
     return;
 }
 

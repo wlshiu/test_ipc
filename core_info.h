@@ -48,6 +48,17 @@ typedef struct core_attr
     pthread_cond_t      *pCores_irq_cond;
 
 } core_attr_t;
+
+/* Max supported ISR counts */
+#define VRING_ISR_COUNT                 2
+
+typedef struct vring_isr_info
+{
+    int     vector_id;
+    void    *data;
+    void    (*vring_isr)(int vector_id, void *data);
+
+} vring_isr_info_t;
 //=============================================================================
 //                  Global Data Definition
 //=============================================================================

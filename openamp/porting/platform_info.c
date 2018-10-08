@@ -41,6 +41,7 @@
 
 #include "common/hil/hil.h"
 #include "rpmsg/rpmsg_core.h"
+#include "porting/platform_info.h"
 
 
 #define VIRTIO_RPMSG_F_NS               0 /* RP supports name service notifications */
@@ -58,10 +59,6 @@ static uint32_t     g_vring_1[8 << 10] = {0};
 #define VRING0_BASE                       &g_vring_0
 #define VRING1_BASE                       &g_vring_1
 
-
-/* IPI_VECT here defines VRING index in MU */
-#define VRING0_IPI_VECT                   0
-#define VRING1_IPI_VECT                   1
 
 #define MASTER_CPU_ID                     RPMSG_MASTER
 #define REMOTE_CPU_ID                     RPMSG_REMOTE
@@ -145,14 +142,14 @@ struct hil_proc     g_proc_table[] =
                 .phy_addr  = (void *)VRING0_BASE,
                 .num_descs = 256,
                 .align     = VRING_ALIGN,
-                .intr_info = { VRING0_IPI_VECT, 0, 0, NULL }
+                .intr_info = { VRING_VECT_0, 0, 0, NULL }
             },
             .vring_info[1] = { /* RX */
                 .vq        = NULL,
                 .phy_addr  = (void *)VRING1_BASE,
                 .num_descs = 256,
                 .align     = VRING_ALIGN,
-                .intr_info ={ VRING1_IPI_VECT, 0, 0, NULL }
+                .intr_info ={ VRING_VECT_1, 0, 0, NULL }
             }
         },
 
@@ -175,14 +172,14 @@ struct hil_proc     g_proc_table[] =
                 .phy_addr  = (void *)VRING0_BASE,
                 .num_descs = 256,
                 .align     = VRING_ALIGN,
-                .intr_info = { VRING0_IPI_VECT, 0, 0, NULL }
+                .intr_info = { VRING_VECT_0, 0, 0, NULL }
             },
             .vring_info[1] = {/* TX */
                 .vq        = NULL,
                 .phy_addr  = (void *)VRING1_BASE,
                 .num_descs = 256,
                 .align     = VRING_ALIGN,
-                .intr_info = { VRING1_IPI_VECT, 0, 0, NULL }
+                .intr_info = { VRING_VECT_1, 0, 0, NULL }
             }
         },
 
@@ -272,3 +269,11 @@ platform_set_vring_intr_priv_data(
     return rval;
 }
 
+void
+platform_vring_isr(
+    int     vect_id,
+    void    *data)
+{
+    hil_isr((struct proc_vring*)data);
+    return;
+}

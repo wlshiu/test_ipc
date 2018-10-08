@@ -185,7 +185,7 @@ void hil_delete_proc(struct hil_proc *proc)
  */
 void hil_isr(struct proc_vring *vring_hw)
 {
-//    virtqueue_notification(vring_hw->vq);
+    virtqueue_notification(vring_hw->vq);
 }
 
 /**
