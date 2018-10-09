@@ -51,6 +51,10 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="core_remote.h" />
+		<Unit filename="irq_queue.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="irq_queue.h" />
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -86,6 +90,10 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="openamp/rpmsg/rpmsg_core.h" />
+		<Unit filename="openamp/rpmsg/rpmsg_ext.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="openamp/rpmsg/rpmsg_ext.h" />
 		<Unit filename="openamp/virtio/virtio.c">
 			<Option compilerVar="CC" />
 		</Unit>

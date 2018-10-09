@@ -17,6 +17,8 @@
 #include "rpmsg/rpmsg.h"
 #include "common/hil/hil.h"
 #include "porting/platform_info.h"
+
+#include "irq_queue.h"
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
@@ -25,7 +27,11 @@
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
-
+#define msg(str, argv...)           do{ extern pthread_mutex_t   g_log_mtx; \
+                                        pthread_mutex_lock(&g_log_mtx); \
+                                        printf("%s[%d][master] "str, __func__, __LINE__, ##argv); \
+                                        pthread_mutex_unlock(&g_log_mtx); \
+                                    }while(0)
 //=============================================================================
 //                  Structure Definition
 //=============================================================================
@@ -47,6 +53,8 @@ static pthread_mutex_t          g_mtx_rpmsg_rx;
 
 static vring_isr_info_t         g_vring_isr[VRING_VECT_TOTAL] = {0};
 
+extern queue_handle_t      g_irq_queue_0;
+extern queue_handle_t      g_irq_queue_1;
 //=============================================================================
 //                  Private Function Definition
 //=============================================================================
@@ -73,15 +81,10 @@ _notify(
     do {
         core_attr_t     *pAttr_core = (core_attr_t*)intr_info->data;
 
-        printf("%d\n", intr_info->vect_id);
-//        if( intr_info->vect_id == LOCAL_VRING_VECT_TX )
-        {
-            pthread_cond_signal(pAttr_core->pCores_irq_cond);
-            break;
-        }
-//        else if( intr_info->vect_id == LOCAL_VRING_VECT_RX )
-        {
-        }
+        msg("%s, %d\n", "enter", intr_info->vect_id);
+        queue_push(&g_irq_queue_0, intr_info->vect_id);
+        pthread_cond_signal(pAttr_core->pCores_irq_cond);
+        msg("%s\n", "leave");
     } while(0);
 
     return;
@@ -109,6 +112,8 @@ _rpmsg_channel_created(
 //    rp_ept = rpmsg_create_ept(rp_chnl, rpmsg_read_cb, RPMSG_NULL,
 //                              RPMSG_ADDR_ANY);
 
+//    g_rpmsg_ready = 1;
+    msg("%s\n", "enter");
     return;
 }
 
@@ -118,6 +123,7 @@ _rpmsg_channel_deleted(
 {
 //    rpmsg_destroy_ept(rp_ept);
 
+    msg("%s\n", "enter");
     return;
 }
 
@@ -140,7 +146,8 @@ _rpmsg_recv_cb(
         rpmsg_send(rp_chnl, data, len);
     }
 #else
-    g_rpmsg_ready = 1;
+
+    msg("%s\n", "enter");
 #endif
 
     return;
@@ -157,7 +164,10 @@ _isr_core_master(void)
 {
 //    pthread_cond_signal(&g_cond_rpmsg_rx);
 
-    uint32_t                        vect_id = LOCAL_VRING_VECT_RX;
+    uint32_t                        vect_id = (uint32_t)-1;
+
+    msg("%s\n", "enter");
+    queue_pop(&g_irq_queue_1, (int*)&vect_id);
 
     if( vect_id < VRING_ISR_COUNT )
     {
@@ -165,6 +175,8 @@ _isr_core_master(void)
 
         if( pInfo->vring_isr )
             pInfo->vring_isr(vect_id, pInfo->data);
+
+        msg("%s\n", "leave");
     }
     return;
 }
@@ -201,15 +213,27 @@ _task_core_master(void *argv)
 
     while(1)
     {
-        pthread_mutex_lock(&g_mtx_rpmsg_rx);
-        pthread_cond_wait(&g_cond_rpmsg_rx, &g_mtx_rpmsg_rx);
+        void                *pTX_buf = 0;
+        unsigned long       buf_size = 0;
 
-        if( !g_rpmsg_ready )
-            continue;
+//        pthread_mutex_lock(&g_mtx_rpmsg_rx);
+//        pthread_cond_wait(&g_cond_rpmsg_rx, &g_mtx_rpmsg_rx);
 
+//        if( !g_rpmsg_ready )
+//            continue;
+#if 0
+        pTX_buf = rpmsg_alloc_tx_buffer(g_act_chnnl, &buf_size, RPMSG_TRUE);
+        if( !pTX_buf )      continue;
 
-        // send rpmsg
+        memcpy(pTX_buf, app_buf, len);
 
+        /* Echo back received message with nocopy send */
+        rpmsg_sendto_nocopy(g_act_chnnl, pTX_buf, len, app_msg[app_idx].src);
+
+        rpmsg_release_rx_buffer(g_act_chnnl, app_msg[app_idx].data)
+
+        g_rpmsg_ready = 0;
+#endif
         Sleep((rand() >> 5)& 0x3);
     }
     pthread_exit(0);

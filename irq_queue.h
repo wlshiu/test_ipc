@@ -1,23 +1,29 @@
 /**
  * Copyright (c) 2018 Wei-Lun Hsu. All Rights Reserved.
  */
-/** @file core_info.c
+/** @file irq_queue.h
  *
  * @author Wei-Lun Hsu
  * @version 0.1
- * @date 2018/10/01
+ * @date 2018/10/09
  * @license
  * @description
  */
 
+#ifndef __irq_queue_H_wPGPuItu_lo4g_HUKd_sZHl_uVfwggdOj2oG__
+#define __irq_queue_H_wPGPuItu_lo4g_HUKd_sZHl_uVfwggdOj2oG__
 
-#include <windows.h>
-#include "core_info.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
-
+/* Queue structure */
+#define QUEUE_SIZE              16 // power of 2
+#define QUEUE_ELEMENTS          (QUEUE_SIZE - 1)
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
@@ -25,7 +31,12 @@
 //=============================================================================
 //                  Structure Definition
 //=============================================================================
+typedef struct queue_handle
+{
+    int                  queue_buf[QUEUE_SIZE];
+    volatile int         queue_in, queue_out;
 
+} queue_handle_t;
 //=============================================================================
 //                  Global Data Definition
 //=============================================================================
@@ -33,55 +44,19 @@
 //=============================================================================
 //                  Private Function Definition
 //=============================================================================
-static void*
-_task_irq(void *argv)
-{
-    core_attr_t             *pAttr_core = (core_attr_t*)argv;
-    pthread_mutex_t         irq_mtx;
 
-//    pthread_cond_init(&pAttr_core->irq_cond, NULL);
-    pthread_mutex_init(&irq_mtx, NULL);
-
-    pthread_detach(pthread_self());
-
-    while(1)
-    {
-        pthread_mutex_lock(&irq_mtx);
-        pthread_cond_wait(&pAttr_core->irq_cond, &irq_mtx);
-        pthread_mutex_unlock(&irq_mtx);
-
-        if( pAttr_core->pf_irs )
-            pAttr_core->pf_irs();
-
-//        pthread_mutex_unlock(&irq_mtx);
-        Sleep((rand() >> 5) & 0x1);
-    }
-
-    pthread_exit(0);
-    return 0;
-}
 //=============================================================================
 //                  Public Function Definition
 //=============================================================================
-int
-core_irq_simulator(
-    core_attr_t     *pAttr,
-    uint32_t        core_num)
-{
-    pthread_t        t;
-    core_attr_t     *pAttr_core_0 = pAttr;
-    core_attr_t     *pAttr_core_1 = pAttr + 1;
+void queue_init(queue_handle_t *pHQ);
 
-    pthread_cond_init(&pAttr_core_0->irq_cond, NULL);
-    pthread_cond_init(&pAttr_core_1->irq_cond, NULL);
+int queue_push(queue_handle_t *pHQ, int _new);
 
-    pAttr_core_0->pCores_irq_cond = &pAttr_core_1->irq_cond;
-    pAttr_core_1->pCores_irq_cond = &pAttr_core_0->irq_cond;
+int queue_pop(queue_handle_t *pHQ, int *_old);
 
-    pthread_create(&t, 0, _task_irq, pAttr_core_0);
-    pthread_create(&t, 0, _task_irq, pAttr_core_1);
 
-    return 0;
+#ifdef __cplusplus
 }
+#endif
 
-
+#endif

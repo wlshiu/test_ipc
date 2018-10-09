@@ -17,6 +17,7 @@
 #include "common/hil/hil.h"
 #include "porting/platform_info.h"
 
+#include "irq_queue.h"
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
@@ -25,7 +26,11 @@
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
-
+#define msg(str, argv...)           do{ extern pthread_mutex_t   g_log_mtx; \
+                                        pthread_mutex_lock(&g_log_mtx); \
+                                        printf("%s[%d][remote] "str, __func__, __LINE__, ##argv); \
+                                        pthread_mutex_unlock(&g_log_mtx); \
+                                    }while(0)
 //=============================================================================
 //                  Structure Definition
 //=============================================================================
@@ -39,6 +44,9 @@ static pthread_cond_t           g_cond_rpmsg_rx;
 static pthread_mutex_t          g_mtx_rpmsg_rx;
 
 static vring_isr_info_t         g_vring_isr[VRING_VECT_TOTAL] = {0};
+
+extern queue_handle_t      g_irq_queue_0;
+extern queue_handle_t      g_irq_queue_1;
 //=============================================================================
 //                  Private Function Definition
 //=============================================================================
@@ -65,14 +73,10 @@ _notify(
     do {
         core_attr_t     *pAttr_core = (core_attr_t*)intr_info->data;
 
-//        if( intr_info->vect_id == LOCAL_VRING_VECT_TX )
-        {
-            pthread_cond_signal(pAttr_core->pCores_irq_cond);
-            break;
-        }
-//        else if( intr_info->vect_id == LOCAL_VRING_VECT_RX )
-        {
-        }
+        msg("%s, %d\n", "enter", intr_info->vect_id);
+        queue_push(&g_irq_queue_1, intr_info->vect_id);
+        pthread_cond_signal(pAttr_core->pCores_irq_cond);
+        msg("%s\n", "leave");
     } while(0);
     return;
 }
@@ -111,10 +115,11 @@ _rpmsg_recv_cb(
     /* Send data back to master */
     if (rpmsg_send(rp_chnl, data, len) < 0)
     {
-        err("%s", "rpmsg_send failed\n");
+        err("%s\n", "rpmsg_send failed");
     }
 
     g_rpmsg_ready = 1;
+    msg("%s\n", "enter");
 #endif
 
     return;
@@ -125,6 +130,7 @@ _rpmsg_channel_created(
     struct rpmsg_channel    *rp_chnl)
 {
     (void)rp_chnl;
+    msg("%s\n", "enter");
     return;
 }
 
@@ -133,6 +139,7 @@ _rpmsg_channel_deleted(
     struct rpmsg_channel    *rp_chnl)
 {
     (void)rp_chnl;
+    msg("%s\n", "enter");
     return;
 }
 
@@ -147,7 +154,10 @@ _isr_core_remote(void)
 {
 //    pthread_cond_signal(&g_cond_rpmsg_rx);
 
-    uint32_t                        vect_id = LOCAL_VRING_VECT_RX;
+    uint32_t                        vect_id = (uint32_t)-1;
+
+    msg("%s\n", "enter");
+    queue_pop(&g_irq_queue_0, (int*)&vect_id);
 
     if( vect_id < VRING_ISR_COUNT )
     {
@@ -155,6 +165,8 @@ _isr_core_remote(void)
 
         if( pInfo->vring_isr )
             pInfo->vring_isr(vect_id, pInfo->data);
+
+        msg("%s\n", "leave");
     }
     return;
 }
@@ -182,11 +194,11 @@ _task_core_remote(void *argv)
 
     while(1)
     {
-        pthread_mutex_lock(&g_mtx_rpmsg_rx);
-        pthread_cond_wait(&g_cond_rpmsg_rx, &g_mtx_rpmsg_rx);
+//        pthread_mutex_lock(&g_mtx_rpmsg_rx);
+//        pthread_cond_wait(&g_cond_rpmsg_rx, &g_mtx_rpmsg_rx);
 
-        if( !g_rpmsg_ready )
-            continue;
+//        if( !g_rpmsg_ready )
+//            continue;
 
         Sleep((rand() >> 5)& 0x3);
     }

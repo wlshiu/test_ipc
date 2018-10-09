@@ -223,9 +223,13 @@ void env_wmb(void)
  */
 int env_create_mutex(void **lock, int count)
 {
-    pthread_mutex_t     *pMutex = malloc(sizeof(pthread_mutex_t));
+    pthread_mutexattr_t     mtx_attr;
+    pthread_mutex_t         *pMutex = malloc(sizeof(pthread_mutex_t));
     memset(pMutex, 0x0, sizeof(pthread_mutex_t));
-    pthread_mutex_init(pMutex, 0);
+
+    pthread_mutexattr_init(&mtx_attr);
+//    pthread_mutexattr_settype(&mtx_attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(pMutex, &mtx_attr);
     *lock = pMutex;
     return 0;
 }

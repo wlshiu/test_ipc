@@ -1,66 +1,30 @@
 /**
  * Copyright (c) 2018 Wei-Lun Hsu. All Rights Reserved.
  */
-/** @file core_info.h
+/** @file irq_queue.c
  *
  * @author Wei-Lun Hsu
  * @version 0.1
- * @date 2018/10/01
+ * @date 2018/10/09
  * @license
  * @description
  */
 
-#ifndef __core_info_H_wBZxsyBn_lOzr_H6P8_s8PK_uEN0hHD2DlBM__
-#define __core_info_H_wBZxsyBn_lOzr_H6P8_s8PK_uEN0hHD2DlBM__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
-#include <stdint.h>
-#include <pthread.h>
+#include "irq_queue.h"
 
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
-typedef enum core_id
-{
-    CORE_ID_MASTER       = 0,
-    CORE_ID_REMOTE_1,
-    CORE_ID_TOTAL,
-} core_id_t;
+
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
-#define err(str, argv...)           do{ printf("%s[%d] " str, __func__, __LINE__, ##argv); while(1);}while(0)
-
 
 //=============================================================================
 //                  Structure Definition
 //=============================================================================
-typedef void (*cb_irs)(void);
 
-typedef struct core_attr
-{
-    core_id_t           core_id;
-    pthread_cond_t      irq_cond;
-    cb_irs              pf_irs;
-
-    pthread_cond_t      *pCores_irq_cond;
-
-} core_attr_t;
-
-/* Max supported ISR counts */
-#define VRING_ISR_COUNT                 2
-
-typedef struct vring_isr_info
-{
-    int     vector_id;
-    void    *data;
-    void    (*vring_isr)(int vector_id, void *data);
-
-} vring_isr_info_t;
 //=============================================================================
 //                  Global Data Definition
 //=============================================================================
@@ -72,15 +36,47 @@ typedef struct vring_isr_info
 //=============================================================================
 //                  Public Function Definition
 //=============================================================================
-int
-core_irq_simulator(
-    core_attr_t     *pAttr,
-    uint32_t        core_num);
 
-
-
-#ifdef __cplusplus
+void queue_init(queue_handle_t *pHQ)
+{
+    pHQ->queue_in = pHQ->queue_out = 0;
 }
-#endif
 
-#endif
+int queue_push(queue_handle_t *pHQ, int _new)
+{
+    int q_in, q_out;
+
+    q_in  = pHQ->queue_in;
+    q_out = pHQ->queue_out;
+
+    if( q_in == ((q_out - 1 + QUEUE_SIZE) & (QUEUE_SIZE - 1)) )
+    {
+        return -1; /* Queue Full*/
+    }
+
+    pHQ->queue_buf[q_in] = _new;
+
+    pHQ->queue_in = (q_in + 1) & (QUEUE_SIZE - 1);
+
+    return 0; // No errors
+}
+
+int queue_pop(queue_handle_t *pHQ, int *_old)
+{
+    int q_in, q_out;
+
+    q_in  = pHQ->queue_in;
+    q_out = pHQ->queue_out;
+
+    if( q_in == q_out )
+    {
+        return -1; /* Queue Empty - nothing to get*/
+    }
+
+    *_old = pHQ->queue_buf[q_out];
+
+    pHQ->queue_out = (q_out + 1) & (QUEUE_SIZE - 1);
+
+    return 0; // No errors
+}
+
