@@ -26,8 +26,8 @@
 //=============================================================================
 core_attr_t         g_core_attr[CORE_ID_TOTAL];
 
-queue_handle_t      g_irq_queue_0;
-queue_handle_t      g_irq_queue_1;
+queue_handle_t      g_vring_irq_q_0;
+queue_handle_t      g_vring_irq_q_1;
 
 pthread_mutex_t      g_log_mtx;
 //=============================================================================
@@ -43,8 +43,8 @@ int main()
 
     memset(&g_core_attr, 0x0, sizeof(g_core_attr));
 
-    queue_init(&g_irq_queue_0);
-    queue_init(&g_irq_queue_1);
+    queue_init(&g_vring_irq_q_0);
+    queue_init(&g_vring_irq_q_1);
     pthread_mutex_init(&g_log_mtx, 0);
 
     //--------------------------------

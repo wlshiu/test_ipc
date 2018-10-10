@@ -27,6 +27,24 @@
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
+#if 0
+#define trace_enter()                do{ extern pthread_mutex_t   g_log_mtx; \
+                                        pthread_mutex_lock(&g_log_mtx); \
+                                        printf("%s[%d][master] enter\n", __func__, __LINE__); \
+                                        pthread_mutex_unlock(&g_log_mtx); \
+                                    }while(0)
+
+#define trace_leave()                do{ extern pthread_mutex_t   g_log_mtx; \
+                                        pthread_mutex_lock(&g_log_mtx); \
+                                        printf("%s[%d][master] leave\n", __func__, __LINE__); \
+                                        pthread_mutex_unlock(&g_log_mtx); \
+                                    }while(0)
+#else
+    #define trace_enter()
+    #define trace_leave()
+#endif
+
+
 #define msg(str, argv...)           do{ extern pthread_mutex_t   g_log_mtx; \
                                         pthread_mutex_lock(&g_log_mtx); \
                                         printf("%s[%d][master] "str, __func__, __LINE__, ##argv); \
@@ -53,8 +71,8 @@ static pthread_mutex_t          g_mtx_rpmsg_rx;
 
 static vring_isr_info_t         g_vring_isr[VRING_VECT_TOTAL] = {0};
 
-extern queue_handle_t      g_irq_queue_0;
-extern queue_handle_t      g_irq_queue_1;
+extern queue_handle_t      g_vring_irq_q_0;
+extern queue_handle_t      g_vring_irq_q_1;
 //=============================================================================
 //                  Private Function Definition
 //=============================================================================
@@ -81,10 +99,17 @@ _notify(
     do {
         core_attr_t     *pAttr_core = (core_attr_t*)intr_info->data;
 
-        msg("%s, %d\n", "enter", intr_info->vect_id);
-        queue_push(&g_irq_queue_0, intr_info->vect_id);
-        pthread_cond_signal(pAttr_core->pCores_irq_cond);
-        msg("%s\n", "leave");
+        trace_enter();
+        msg("vent_id= %d\n", intr_info->vect_id);
+        queue_push(&g_vring_irq_q_0, intr_info->vect_id);
+
+        {
+            static int     event = 0;
+//            pthread_cond_signal(pAttr_core->pCores_irq_cond);
+            queue_push(pAttr_core->pRemote_irq_q, event++);
+        }
+
+        trace_leave();
     } while(0);
 
     return;
@@ -113,7 +138,8 @@ _rpmsg_channel_created(
 //                              RPMSG_ADDR_ANY);
 
 //    g_rpmsg_ready = 1;
-    msg("%s\n", "enter");
+    trace_enter();
+//    msg("%s\n", "enter");
     return;
 }
 
@@ -123,7 +149,7 @@ _rpmsg_channel_deleted(
 {
 //    rpmsg_destroy_ept(rp_ept);
 
-    msg("%s\n", "enter");
+    trace_enter();
     return;
 }
 
@@ -147,7 +173,7 @@ _rpmsg_recv_cb(
     }
 #else
 
-    msg("%s\n", "enter");
+    trace_enter();
 #endif
 
     return;
@@ -166,8 +192,8 @@ _isr_core_master(void)
 
     uint32_t                        vect_id = (uint32_t)-1;
 
-    msg("%s\n", "enter");
-    queue_pop(&g_irq_queue_1, (int*)&vect_id);
+    trace_enter();
+    queue_pop(&g_vring_irq_q_1, (int*)&vect_id);
 
     if( vect_id < VRING_ISR_COUNT )
     {
@@ -176,7 +202,7 @@ _isr_core_master(void)
         if( pInfo->vring_isr )
             pInfo->vring_isr(vect_id, pInfo->data);
 
-        msg("%s\n", "leave");
+        trace_leave();
     }
     return;
 }

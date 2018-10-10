@@ -21,6 +21,7 @@ extern "C" {
 #include <stdint.h>
 #include <pthread.h>
 
+#include "irq_queue.h"
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
@@ -44,10 +45,12 @@ typedef void (*cb_irs)(void);
 typedef struct core_attr
 {
     core_id_t           core_id;
-    pthread_cond_t      irq_cond;
+//    pthread_cond_t      irq_cond;
+    queue_handle_t      irq_q;
     cb_irs              pf_irs;
 
-    pthread_cond_t      *pCores_irq_cond;
+//    pthread_cond_t      *pCores_irq_cond;
+    queue_handle_t      *pRemote_irq_q;
 
 } core_attr_t;
 

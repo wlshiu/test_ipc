@@ -37,21 +37,25 @@ static void*
 _task_irq(void *argv)
 {
     core_attr_t             *pAttr_core = (core_attr_t*)argv;
-    pthread_mutex_t         irq_mtx;
+//    pthread_mutex_t         irq_mtx;
 
 //    pthread_cond_init(&pAttr_core->irq_cond, NULL);
-    pthread_mutex_init(&irq_mtx, NULL);
+//    pthread_mutex_init(&irq_mtx, NULL);
 
     pthread_detach(pthread_self());
 
     while(1)
     {
-        pthread_mutex_lock(&irq_mtx);
-        pthread_cond_wait(&pAttr_core->irq_cond, &irq_mtx);
-        pthread_mutex_unlock(&irq_mtx);
+        int     value = 0;
+//        pthread_mutex_lock(&irq_mtx);
+//        pthread_cond_wait(&pAttr_core->irq_cond, &irq_mtx);
+//        pthread_mutex_unlock(&irq_mtx);
 
-        if( pAttr_core->pf_irs )
-            pAttr_core->pf_irs();
+        if( !queue_pop(&pAttr_core->irq_q, &value) )
+        {
+            if( pAttr_core->pf_irs )
+                pAttr_core->pf_irs();
+        }
 
 //        pthread_mutex_unlock(&irq_mtx);
         Sleep((rand() >> 5) & 0x1);
@@ -72,11 +76,17 @@ core_irq_simulator(
     core_attr_t     *pAttr_core_0 = pAttr;
     core_attr_t     *pAttr_core_1 = pAttr + 1;
 
-    pthread_cond_init(&pAttr_core_0->irq_cond, NULL);
-    pthread_cond_init(&pAttr_core_1->irq_cond, NULL);
+//    pthread_cond_init(&pAttr_core_0->irq_cond, NULL);
+//    pthread_cond_init(&pAttr_core_1->irq_cond, NULL);
 
-    pAttr_core_0->pCores_irq_cond = &pAttr_core_1->irq_cond;
-    pAttr_core_1->pCores_irq_cond = &pAttr_core_0->irq_cond;
+//    pAttr_core_0->pCores_irq_cond = &pAttr_core_1->irq_cond;
+//    pAttr_core_1->pCores_irq_cond = &pAttr_core_0->irq_cond;
+
+    queue_init(&pAttr_core_0->irq_q);
+    queue_init(&pAttr_core_1->irq_q);
+
+    pAttr_core_0->pRemote_irq_q = &pAttr_core_1->irq_q;
+    pAttr_core_1->pRemote_irq_q = &pAttr_core_0->irq_q;
 
     pthread_create(&t, 0, _task_irq, pAttr_core_0);
     pthread_create(&t, 0, _task_irq, pAttr_core_1);
