@@ -97,7 +97,6 @@ _notify(
 
         {
             static int     event = 0;
-//            pthread_cond_signal(pAttr_core->pCores_irq_cond);
             queue_push(pAttr_core->pRemote_irq_q, event++);
         }
 
@@ -132,7 +131,13 @@ _rpmsg_recv_cb(
 
     trace_enter();
 
-//    msg("%s\n", "enter");
+    {
+        char    *pCur = (char*)data;
+        msg("%s", "");
+        for(int i = 0; i < len; ++i)
+            printf("%c", *(pCur + i));
+    }
+
 #if 0
     /* On reception of a shutdown we signal the application to terminate */
     if ((*(unsigned int *)data) == SHUTDOWN_MSG)
@@ -180,8 +185,6 @@ _rpmsg_channel_deleted(
 static void
 _isr_core_remote(void)
 {
-//    pthread_cond_signal(&g_cond_rpmsg_rx);
-
     uint32_t                        vect_id = (uint32_t)-1;
 
     trace_enter();
@@ -222,9 +225,6 @@ _task_core_remote(void *argv)
 
     while(1)
     {
-//        pthread_mutex_lock(&g_mtx_rpmsg_rx);
-//        pthread_cond_wait(&g_cond_rpmsg_rx, &g_mtx_rpmsg_rx);
-
 //        if( !g_rpmsg_ready )
 //            continue;
 

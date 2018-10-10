@@ -18,7 +18,10 @@
 #include "common/hil/hil.h"
 #include "porting/platform_info.h"
 
+#include "rpmsg/rpmsg_ext.h"
+
 #include "irq_queue.h"
+
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
@@ -63,7 +66,7 @@ typedef struct remote_table
 //                  Global Data Definition
 //=============================================================================
 static remote_table_t           g_remote_table = {0};
-static struct rpmsg_channel     *g_act_chnnl = 0;
+static struct rpmsg_channel     *g_pAact_chnnl = 0;
 static uint32_t                 g_rpmsg_ready = 0;
 
 static pthread_cond_t           g_cond_rpmsg_rx;
@@ -105,7 +108,6 @@ _notify(
 
         {
             static int     event = 0;
-//            pthread_cond_signal(pAttr_core->pCores_irq_cond);
             queue_push(pAttr_core->pRemote_irq_q, event++);
         }
 
@@ -132,14 +134,11 @@ static void
 _rpmsg_channel_created(
     struct rpmsg_channel    *rp_chnl)
 {
-    g_act_chnnl = rp_chnl;
+    g_pAact_chnnl = rp_chnl;
 
-//    rp_ept = rpmsg_create_ept(rp_chnl, rpmsg_read_cb, RPMSG_NULL,
-//                              RPMSG_ADDR_ANY);
-
-//    g_rpmsg_ready = 1;
     trace_enter();
-//    msg("%s\n", "enter");
+    g_rpmsg_ready = 1;
+    msg("src=%ld, dst= %ld\n", g_pAact_chnnl->src, g_pAact_chnnl->dst);
     return;
 }
 
@@ -174,6 +173,13 @@ _rpmsg_recv_cb(
 #else
 
     trace_enter();
+    {
+        char    *pCur = (char*)data;
+        msg("%s", "");
+        for(int i = 0; i < len; ++i)
+            printf("%c", *(pCur + i));
+    }
+
 #endif
 
     return;
@@ -188,8 +194,6 @@ _rpmsg_recv_cb(
 static void
 _isr_core_master(void)
 {
-//    pthread_cond_signal(&g_cond_rpmsg_rx);
-
     uint32_t                        vect_id = (uint32_t)-1;
 
     trace_enter();
@@ -242,21 +246,18 @@ _task_core_master(void *argv)
         void                *pTX_buf = 0;
         unsigned long       buf_size = 0;
 
-//        pthread_mutex_lock(&g_mtx_rpmsg_rx);
-//        pthread_cond_wait(&g_cond_rpmsg_rx, &g_mtx_rpmsg_rx);
-
-//        if( !g_rpmsg_ready )
-//            continue;
-#if 0
-        pTX_buf = rpmsg_alloc_tx_buffer(g_act_chnnl, &buf_size, RPMSG_TRUE);
+        if( !g_rpmsg_ready )
+            continue;
+#if 1
+        pTX_buf = rpmsg_alloc_tx_buffer(g_pAact_chnnl, &buf_size, RPMSG_TRUE);
         if( !pTX_buf )      continue;
 
-        memcpy(pTX_buf, app_buf, len);
+        snprintf(pTX_buf, buf_size, "%s\n", "master test");
 
         /* Echo back received message with nocopy send */
-        rpmsg_sendto_nocopy(g_act_chnnl, pTX_buf, len, app_msg[app_idx].src);
+        rpmsg_sendto_nocopy(g_pAact_chnnl, pTX_buf, strlen((const char*)pTX_buf), g_pAact_chnnl->src);
 
-        rpmsg_release_rx_buffer(g_act_chnnl, app_msg[app_idx].data)
+//        rpmsg_release_rx_buffer(g_pAact_chnnl, pTX_buf);
 
         g_rpmsg_ready = 0;
 #endif
