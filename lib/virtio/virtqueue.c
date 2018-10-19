@@ -27,14 +27,192 @@
 #include "rpmsg_env.h"
 #include "virtqueue.h"
 
-/* Prototype for internal functions. */
-static void vq_ring_update_avail(struct virtqueue *, uint16_t);
-static void vq_ring_update_used(struct virtqueue *vq, uint16_t head_idx, uint32_t len);
-static uint16_t vq_ring_add_buffer(struct virtqueue *, struct vring_desc *, uint16_t, void *, uint32_t);
-static int vq_ring_enable_interrupt(struct virtqueue *, uint16_t);
-static int vq_ring_must_notify_host(struct virtqueue *vq);
-static void vq_ring_notify_host(struct virtqueue *vq);
-static int virtqueue_nused(struct virtqueue *vq);
+/**************************************************************************
+ *                            Helper Functions                            *
+ **************************************************************************/
+/*!
+ *
+ * virtqueue_nused
+ *
+ */
+static int virtqueue_nused(struct virtqueue *vq)
+{
+    uint16_t used_idx, nused;
+
+    used_idx = vq->vq_ring.used->idx;
+
+    nused = (uint16_t)(used_idx - vq->vq_used_cons_idx);
+    VQASSERT(vq, nused <= vq->vq_nentries, "used more than available");
+
+    return (nused);
+}
+
+
+/*!
+ *
+ * vq_ring_add_buffer
+ *
+ */
+static uint16_t vq_ring_add_buffer(
+    struct virtqueue *vq, struct vring_desc *desc, uint16_t head_idx, void *buffer, uint32_t length)
+{
+    struct vring_desc *dp;
+
+    if (buffer == VQ_NULL)
+    {
+        return head_idx;
+    }
+
+    VQASSERT(vq, head_idx != VQ_RING_DESC_CHAIN_END, "premature end of free desc chain");
+
+    dp = &desc[head_idx];
+    dp->addr = env_map_vatopa(buffer);
+    dp->len = length;
+    dp->flags = VRING_DESC_F_WRITE;
+
+    return (head_idx + 1);
+}
+
+/*!
+ *
+ * vq_ring_init
+ *
+ */
+void vq_ring_init(struct virtqueue *vq)
+{
+    struct vring *vr;
+    int i, size;
+
+    size = vq->vq_nentries;
+    vr = &vq->vq_ring;
+
+    for (i = 0; i < size - 1; i++)
+        vr->desc[i].next = i + 1;
+    vr->desc[i].next = VQ_RING_DESC_CHAIN_END;
+}
+
+/*!
+ *
+ * vq_ring_update_avail
+ *
+ */
+static void vq_ring_update_avail(struct virtqueue *vq, uint16_t desc_idx)
+{
+    uint16_t avail_idx;
+
+    /*
+     * Place the head of the descriptor chain into the next slot and make
+     * it usable to the host. The chain is made available now rather than
+     * deferring to virtqueue_notify() in the hopes that if the host is
+     * currently running on another CPU, we can keep it processing the new
+     * descriptor.
+     */
+    avail_idx = vq->vq_ring.avail->idx & (vq->vq_nentries - 1);
+    vq->vq_ring.avail->ring[avail_idx] = desc_idx;
+
+    env_wmb();
+
+    vq->vq_ring.avail->idx++;
+
+    /* Keep pending count until virtqueue_notify(). */
+    vq->vq_queued_cnt++;
+}
+
+/*!
+ *
+ * vq_ring_update_used
+ *
+ */
+static void vq_ring_update_used(struct virtqueue *vq, uint16_t head_idx, uint32_t len)
+{
+    uint16_t used_idx;
+    struct vring_used_elem *used_desc = VQ_NULL;
+
+    /*
+    * Place the head of the descriptor chain into the next slot and make
+    * it usable to the host. The chain is made available now rather than
+    * deferring to virtqueue_notify() in the hopes that if the host is
+    * currently running on another CPU, we can keep it processing the new
+    * descriptor.
+    */
+    used_idx = vq->vq_ring.used->idx & (vq->vq_nentries - 1);
+    used_desc = &(vq->vq_ring.used->ring[used_idx]);
+    used_desc->id = head_idx;
+    used_desc->len = len;
+
+    env_wmb();
+
+    vq->vq_ring.used->idx++;
+}
+
+/*!
+ *
+ * vq_ring_enable_interrupt
+ *
+ */
+static int vq_ring_enable_interrupt(struct virtqueue *vq, uint16_t ndesc)
+{
+    /*
+     * Enable interrupts, making sure we get the latest index of
+     * what's already been consumed.
+     */
+    if (vq->vq_flags & VIRTQUEUE_FLAG_EVENT_IDX)
+    {
+        vring_used_event(&vq->vq_ring) = vq->vq_used_cons_idx + ndesc;
+    }
+    else
+    {
+        vq->vq_ring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
+    }
+
+    env_mb();
+
+    /*
+     * Enough items may have already been consumed to meet our threshold
+     * since we last checked. Let our caller know so it processes the new
+     * entries.
+     */
+    if (virtqueue_nused(vq) > ndesc)
+    {
+        return (1);
+    }
+
+    return (0);
+}
+
+/*!
+ *
+ * vq_ring_must_notify_host
+ *
+ */
+static int vq_ring_must_notify_host(struct virtqueue *vq)
+{
+    uint16_t new_idx, prev_idx;
+    uint16_t *event_idx;
+
+    if (vq->vq_flags & VIRTQUEUE_FLAG_EVENT_IDX)
+    {
+        new_idx = vq->vq_ring.avail->idx;
+        prev_idx = new_idx - vq->vq_queued_cnt;
+        event_idx = vring_avail_event(&vq->vq_ring);
+
+        return (vring_need_event(*event_idx, new_idx, prev_idx) != 0);
+    }
+
+    return ((vq->vq_ring.used->flags & VRING_USED_F_NO_NOTIFY) == 0);
+}
+
+/*!
+ *
+ * vq_ring_notify_host
+ *
+ */
+static void vq_ring_notify_host(struct virtqueue *vq)
+{
+    if (vq->notify != VQ_NULL)
+        vq->notify(vq);
+}
+
 
 /*!
  * virtqueue_create - Creates new VirtIO queue
@@ -502,141 +680,7 @@ uint32_t virtqueue_get_desc_size(struct virtqueue *vq)
     return (len);
 }
 
-/**************************************************************************
- *                            Helper Functions                            *
- **************************************************************************/
 
-/*!
- *
- * vq_ring_add_buffer
- *
- */
-static uint16_t vq_ring_add_buffer(
-    struct virtqueue *vq, struct vring_desc *desc, uint16_t head_idx, void *buffer, uint32_t length)
-{
-    struct vring_desc *dp;
-
-    if (buffer == VQ_NULL)
-    {
-        return head_idx;
-    }
-
-    VQASSERT(vq, head_idx != VQ_RING_DESC_CHAIN_END, "premature end of free desc chain");
-
-    dp = &desc[head_idx];
-    dp->addr = env_map_vatopa(buffer);
-    dp->len = length;
-    dp->flags = VRING_DESC_F_WRITE;
-
-    return (head_idx + 1);
-}
-
-/*!
- *
- * vq_ring_init
- *
- */
-void vq_ring_init(struct virtqueue *vq)
-{
-    struct vring *vr;
-    int i, size;
-
-    size = vq->vq_nentries;
-    vr = &vq->vq_ring;
-
-    for (i = 0; i < size - 1; i++)
-        vr->desc[i].next = i + 1;
-    vr->desc[i].next = VQ_RING_DESC_CHAIN_END;
-}
-
-/*!
- *
- * vq_ring_update_avail
- *
- */
-static void vq_ring_update_avail(struct virtqueue *vq, uint16_t desc_idx)
-{
-    uint16_t avail_idx;
-
-    /*
-     * Place the head of the descriptor chain into the next slot and make
-     * it usable to the host. The chain is made available now rather than
-     * deferring to virtqueue_notify() in the hopes that if the host is
-     * currently running on another CPU, we can keep it processing the new
-     * descriptor.
-     */
-    avail_idx = vq->vq_ring.avail->idx & (vq->vq_nentries - 1);
-    vq->vq_ring.avail->ring[avail_idx] = desc_idx;
-
-    env_wmb();
-
-    vq->vq_ring.avail->idx++;
-
-    /* Keep pending count until virtqueue_notify(). */
-    vq->vq_queued_cnt++;
-}
-
-/*!
- *
- * vq_ring_update_used
- *
- */
-static void vq_ring_update_used(struct virtqueue *vq, uint16_t head_idx, uint32_t len)
-{
-    uint16_t used_idx;
-    struct vring_used_elem *used_desc = VQ_NULL;
-
-    /*
-    * Place the head of the descriptor chain into the next slot and make
-    * it usable to the host. The chain is made available now rather than
-    * deferring to virtqueue_notify() in the hopes that if the host is
-    * currently running on another CPU, we can keep it processing the new
-    * descriptor.
-    */
-    used_idx = vq->vq_ring.used->idx & (vq->vq_nentries - 1);
-    used_desc = &(vq->vq_ring.used->ring[used_idx]);
-    used_desc->id = head_idx;
-    used_desc->len = len;
-
-    env_wmb();
-
-    vq->vq_ring.used->idx++;
-}
-
-/*!
- *
- * vq_ring_enable_interrupt
- *
- */
-static int vq_ring_enable_interrupt(struct virtqueue *vq, uint16_t ndesc)
-{
-    /*
-     * Enable interrupts, making sure we get the latest index of
-     * what's already been consumed.
-     */
-    if (vq->vq_flags & VIRTQUEUE_FLAG_EVENT_IDX)
-    {
-        vring_used_event(&vq->vq_ring) = vq->vq_used_cons_idx + ndesc;
-    }
-    else
-    {
-        vq->vq_ring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
-    }
-
-    env_mb();
-
-    /*
-     * Enough items may have already been consumed to meet our threshold
-     * since we last checked. Let our caller know so it processes the new
-     * entries.
-     */
-    if (virtqueue_nused(vq) > ndesc)
-    {
-        return (1);
-    }
-
-    return (0);
-}
 
 /*!
  *
@@ -652,52 +696,4 @@ void virtqueue_notification(struct virtqueue *vq)
     }
 }
 
-/*!
- *
- * vq_ring_must_notify_host
- *
- */
-static int vq_ring_must_notify_host(struct virtqueue *vq)
-{
-    uint16_t new_idx, prev_idx;
-    uint16_t *event_idx;
 
-    if (vq->vq_flags & VIRTQUEUE_FLAG_EVENT_IDX)
-    {
-        new_idx = vq->vq_ring.avail->idx;
-        prev_idx = new_idx - vq->vq_queued_cnt;
-        event_idx = vring_avail_event(&vq->vq_ring);
-
-        return (vring_need_event(*event_idx, new_idx, prev_idx) != 0);
-    }
-
-    return ((vq->vq_ring.used->flags & VRING_USED_F_NO_NOTIFY) == 0);
-}
-
-/*!
- *
- * vq_ring_notify_host
- *
- */
-static void vq_ring_notify_host(struct virtqueue *vq)
-{
-    if (vq->notify != VQ_NULL)
-        vq->notify(vq);
-}
-
-/*!
- *
- * virtqueue_nused
- *
- */
-static int virtqueue_nused(struct virtqueue *vq)
-{
-    uint16_t used_idx, nused;
-
-    used_idx = vq->vq_ring.used->idx;
-
-    nused = (uint16_t)(used_idx - vq->vq_used_cons_idx);
-    VQASSERT(vq, nused <= vq->vq_nentries, "used more than available");
-
-    return (nused);
-}

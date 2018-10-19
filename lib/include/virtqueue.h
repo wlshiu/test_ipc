@@ -30,57 +30,57 @@
  */
 
 #include <stdint.h>
-typedef uint8_t boolean;
+typedef uint8_t     boolean;
 
 #include "virtio_ring.h"
 #include "llist.h"
 
 /*Error Codes*/
-#define VQ_ERROR_BASE (-3000)
-#define ERROR_VRING_FULL (VQ_ERROR_BASE - 1)
-#define ERROR_INVLD_DESC_IDX (VQ_ERROR_BASE - 2)
-#define ERROR_EMPTY_RING (VQ_ERROR_BASE - 3)
-#define ERROR_NO_MEM (VQ_ERROR_BASE - 4)
-#define ERROR_VRING_MAX_DESC (VQ_ERROR_BASE - 5)
-#define ERROR_VRING_ALIGN (VQ_ERROR_BASE - 6)
-#define ERROR_VRING_NO_BUFF (VQ_ERROR_BASE - 7)
-#define ERROR_VQUEUE_INVLD_PARAM (VQ_ERROR_BASE - 8)
+#define VQ_ERROR_BASE               (-3000)
+#define ERROR_VRING_FULL            (VQ_ERROR_BASE - 1)
+#define ERROR_INVLD_DESC_IDX        (VQ_ERROR_BASE - 2)
+#define ERROR_EMPTY_RING            (VQ_ERROR_BASE - 3)
+#define ERROR_NO_MEM                (VQ_ERROR_BASE - 4)
+#define ERROR_VRING_MAX_DESC        (VQ_ERROR_BASE - 5)
+#define ERROR_VRING_ALIGN           (VQ_ERROR_BASE - 6)
+#define ERROR_VRING_NO_BUFF         (VQ_ERROR_BASE - 7)
+#define ERROR_VQUEUE_INVLD_PARAM    (VQ_ERROR_BASE - 8)
 
 #ifndef true
-#define true 1
+#define true    1
 #endif
 #ifndef false
-#define false 0
+#define false   0
 #endif
-#define VQUEUE_SUCCESS (0)
-#define VQUEUE_DEBUG (false)
+#define VQUEUE_SUCCESS      (0)
+#define VQUEUE_DEBUG        (false)
 
 /* This is temporary macro to replace C NULL support.
  * At the moment all the RTL specific functions are present in env.
  * */
-#define VQ_NULL ((void *)0)
+#define VQ_NULL     ((void *)0)
 
 /* The maximum virtqueue size is 2^15. Use that value as the end of
  * descriptor chain terminator since it will never be a valid index
  * in the descriptor table. This is used to verify we are correctly
  * handling vq_free_cnt.
  */
-#define VQ_RING_DESC_CHAIN_END (32768)
-#define VIRTQUEUE_FLAG_INDIRECT (0x0001)
-#define VIRTQUEUE_FLAG_EVENT_IDX (0x0002)
-#define VIRTQUEUE_MAX_NAME_SZ (32) /* mind the alignment */
+#define VQ_RING_DESC_CHAIN_END      (32768)
+#define VIRTQUEUE_FLAG_INDIRECT     (0x0001)
+#define VIRTQUEUE_FLAG_EVENT_IDX    (0x0002)
+#define VIRTQUEUE_MAX_NAME_SZ       (32) /* mind the alignment */
 
 /* Support for indirect buffer descriptors. */
-#define VIRTIO_RING_F_INDIRECT_DESC (1 << 28)
+#define VIRTIO_RING_F_INDIRECT_DESC     (1 << 28)
 
 /* Support to suppress interrupt until specific index is reached. */
-#define VIRTIO_RING_F_EVENT_IDX (1 << 29)
+#define VIRTIO_RING_F_EVENT_IDX         (1 << 29)
 
 /*
  * Hint on how long the next interrupt should be postponed. This is
  * only used when the EVENT_IDX feature is negotiated.
  */
-typedef enum
+typedef enum vq_postpone
 {
     VQ_POSTPONE_SHORT,
     VQ_POSTPONE_LONG,
@@ -88,69 +88,71 @@ typedef enum
 } vq_postpone_t;
 
 /* local virtqueue representation, not in shared memory */
-struct virtqueue
+typedef struct virtqueue
 {
     /* 32bit aligned { */
-    char vq_name[VIRTQUEUE_MAX_NAME_SZ];
-    uint32_t vq_flags;
-    int vq_alignment;
-    int vq_ring_size;
-    void *vq_ring_mem;
+    char        vq_name[VIRTQUEUE_MAX_NAME_SZ];
+    uint32_t    vq_flags;
+    int         vq_alignment;
+    int         vq_ring_size;
+    void*       vq_ring_mem;
+
     void (*callback)(struct virtqueue *vq);
     void (*notify)(struct virtqueue *vq);
-    int vq_max_indirect_size;
-    int vq_indirect_mem_size;
-    struct vring vq_ring;
+
+    int             vq_max_indirect_size;
+    int             vq_indirect_mem_size;
+    struct vring    vq_ring;
     /* } 32bit aligned */
 
     /* 16bit aligned { */
-    uint16_t vq_queue_index;
-    uint16_t vq_nentries;
-    uint16_t vq_free_cnt;
-    uint16_t vq_queued_cnt;
+    uint16_t    vq_queue_index;
+    uint16_t    vq_nentries;
+    uint16_t    vq_free_cnt;
+    uint16_t    vq_queued_cnt;
 
     /*
      * Head of the free chain in the descriptor table. If
      * there are no free descriptors, this will be set to
      * VQ_RING_DESC_CHAIN_END.
      */
-    uint16_t vq_desc_head_idx;
+    uint16_t    vq_desc_head_idx;
 
     /*
      * Last consumed descriptor in the used table,
      * trails vq_ring.used->idx.
      */
-    uint16_t vq_used_cons_idx;
+    uint16_t    vq_used_cons_idx;
 
     /*
      * Last consumed descriptor in the available table -
      * used by the consumer side.
      */
-    uint16_t vq_available_idx;
+    uint16_t    vq_available_idx;
     /* } 16bit aligned */
 
-    boolean avail_read;  /* 8bit wide */
-    boolean avail_write; /* 8bit wide */
-    boolean used_read;   /* 8bit wide */
-    boolean used_write;  /* 8bit wide */
+    boolean     avail_read;  /* 8bit wide */
+    boolean     avail_write; /* 8bit wide */
+    boolean     used_read;   /* 8bit wide */
+    boolean     used_write;  /* 8bit wide */
 
-    uint16_t padd; /* aligned to 32bits after this: */
+    uint16_t    padd; /* aligned to 32bits after this: */
 
-    void *priv; /* private pointer, upper layer instance pointer */
-};
+    void        *priv; /* private pointer, upper layer instance pointer */
+} virtqueue_t;
 
 /* struct to hold vring specific information */
 struct vring_alloc_info
 {
-    void *phy_addr;
-    uint32_t align;
-    uint16_t num_descs;
-    uint16_t pad;
+    void        *phy_addr;
+    uint32_t    align;
+    uint16_t    num_descs;
+    uint16_t    pad;
 };
 
 struct vq_static_context
 {
-    struct virtqueue vq;
+    struct virtqueue    vq;
 };
 
 typedef void vq_callback(struct virtqueue *vq);
@@ -158,18 +160,15 @@ typedef void vq_notify(struct virtqueue *vq);
 
 #if (VQUEUE_DEBUG == true)
 #define VQASSERT_BOOL(_vq, _exp, _msg)                             \
-    do                                                             \
-    {                                                              \
-        if (!(_exp))                                               \
-        {                                                          \
+    do{ if (!(_exp)) {                                             \
             env_print("%s: %s - " _msg, __func__, (_vq)->vq_name); \
-            while (1)                                              \
-                ;                                                  \
+            while (1);                                             \
         }                                                          \
     } while (0)
-#define VQASSERT(_vq, _exp, _msg) VQASSERT_BOOL(_vq, (_exp) != 0, _msg)
 
-#define VQ_RING_ASSERT_VALID_IDX(_vq, _idx) VQASSERT((_vq), (_idx) < (_vq)->vq_nentries, "invalid ring index")
+#define VQASSERT(_vq, _exp, _msg)   VQASSERT_BOOL(_vq, (_exp) != 0, _msg)
+
+#define VQ_RING_ASSERT_VALID_IDX(_vq, _idx)     VQASSERT((_vq), (_idx) < (_vq)->vq_nentries, "invalid ring index")
 
 #define VQ_PARAM_CHK(condition, status_var, status_err) \
     if ((status_var == 0) && (condition))               \
@@ -181,7 +180,7 @@ typedef void vq_notify(struct virtqueue *vq);
     if ((vq)->dir == false)  \
         (vq)->dir = true;    \
     else                     \
-    VQASSERT(vq, (vq)->dir == false, "VirtQueue already in use")
+        VQASSERT(vq, (vq)->dir == false, "VirtQueue already in use")
 
 #define VQUEUE_IDLE(vq, dir) ((vq)->dir = false)
 

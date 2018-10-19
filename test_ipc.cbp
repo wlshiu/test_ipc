@@ -43,6 +43,7 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="lib/include/llist.h" />
+		<Unit filename="lib/include/platform/rpmsg_platform.h" />
 		<Unit filename="lib/include/rpmsg_compiler.h" />
 		<Unit filename="lib/include/rpmsg_default_config.h" />
 		<Unit filename="lib/include/rpmsg_env.h" />
@@ -51,14 +52,11 @@
 		<Unit filename="lib/include/rpmsg_queue.h" />
 		<Unit filename="lib/include/virtio_ring.h" />
 		<Unit filename="lib/include/virtqueue.h" />
-		<Unit filename="lib/rpmsg_lite/porting/environment/freertos_warp.c">
+		<Unit filename="lib/rpmsg_lite/porting/env.h" />
+		<Unit filename="lib/rpmsg_lite/porting/env_win32.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="lib/rpmsg_lite/porting/environment/freertos_warp.h" />
-		<Unit filename="lib/rpmsg_lite/porting/environment/rpmsg_env_freertos.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="lib/rpmsg_lite/porting/platform/rpmsg_platform.c">
+		<Unit filename="lib/rpmsg_lite/porting/rpmsg_platform.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="lib/rpmsg_lite/rpmsg_lite.c">
@@ -77,7 +75,6 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="rpmsg_config.h" />
-		<Unit filename="rpmsg_platform.h" />
 		<Extensions>
 			<code_completion />
 			<envvars />

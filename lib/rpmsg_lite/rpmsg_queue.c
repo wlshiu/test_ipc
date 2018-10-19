@@ -32,24 +32,29 @@
 #include "rpmsg_lite.h"
 #include "rpmsg_queue.h"
 
-typedef struct
+typedef struct rpmsg_queue_rx_cb_data
 {
-    unsigned long src;
-    void *data;
-    short int len;
+    unsigned long   src;
+    void            *data;
+    short int       len;
 } rpmsg_queue_rx_cb_data_t;
 
-extern volatile struct rpmsg_lite_instance rpmsg_lite_dev;
+extern volatile struct rpmsg_lite_instance  rpmsg_lite_dev;
 
-int rpmsg_queue_rx_cb(void *payload, int payload_len, unsigned long src, void *priv)
+int
+rpmsg_queue_rx_cb(
+    void            *payload,
+    int             payload_len,
+    unsigned long   src,
+    void            *priv)
 {
-    rpmsg_queue_rx_cb_data_t msg;
+    rpmsg_queue_rx_cb_data_t    msg;
 
     RL_ASSERT(priv);
 
     msg.data = payload;
-    msg.len = payload_len;
-    msg.src = src;
+    msg.len  = payload_len;
+    msg.src  = src;
 
     /* if message is successfully added into queue then hold rpmsg buffer */
     if (env_put_queue(priv, &msg, 0))
@@ -61,12 +66,14 @@ int rpmsg_queue_rx_cb(void *payload, int payload_len, unsigned long src, void *p
     return RL_RELEASE;
 }
 
-rpmsg_queue_handle rpmsg_queue_create(struct rpmsg_lite_instance *rpmsg_lite_dev)
+rpmsg_queue_handle
+rpmsg_queue_create(
+    struct rpmsg_lite_instance  *rpmsg_lite_dev)
 {
-    int status;
-    void *q = NULL;
+    int     status;
+    void    *q = NULL;
 
-    if (rpmsg_lite_dev == RL_NULL)
+    if (!rpmsg_lite_dev)
     {
         return RL_NULL;
     }
@@ -81,56 +88,43 @@ rpmsg_queue_handle rpmsg_queue_create(struct rpmsg_lite_instance *rpmsg_lite_dev
     return ((rpmsg_queue_handle)q);
 }
 
-int rpmsg_queue_destroy(struct rpmsg_lite_instance *rpmsg_lite_dev, rpmsg_queue_handle q)
+int
+rpmsg_queue_destroy(
+    struct rpmsg_lite_instance  *rpmsg_lite_dev,
+    rpmsg_queue_handle          q)
 {
-    if (rpmsg_lite_dev == RL_NULL)
+    if (!rpmsg_lite_dev || !q)
     {
         return RL_ERR_PARAM;
     }
 
-    if (q == RL_NULL)
-    {
-        return RL_ERR_PARAM;
-    }
     env_delete_queue((void *)q);
     return RL_SUCCESS;
 }
 
-int rpmsg_queue_recv(struct rpmsg_lite_instance *rpmsg_lite_dev,
-                     rpmsg_queue_handle q,
-                     unsigned long *src,
-                     char *data,
-                     int maxlen,
-                     int *len,
-                     unsigned long timeout)
+int
+rpmsg_queue_recv(
+    struct rpmsg_lite_instance *rpmsg_lite_dev,
+    rpmsg_queue_handle     q,
+    unsigned long          *src,
+    char                   *data,
+    int                    maxlen,
+    int                    *len,
+    unsigned long          timeout)
 {
-    rpmsg_queue_rx_cb_data_t msg = {0};
-    int retval = RL_SUCCESS;
+    rpmsg_queue_rx_cb_data_t    msg = {0};
+    int                         retval = RL_SUCCESS;
 
-    if (!rpmsg_lite_dev)
+    if (!rpmsg_lite_dev || !q || !data)
     {
         return RL_ERR_PARAM;
-    }
-    if (!q)
-    {
-        return RL_ERR_PARAM;
-    }
-    if (!data)
-    {
-       return RL_ERR_PARAM;
     }
 
     /* Get an element out of the message queue for the selected endpoint */
     if (env_get_queue((void *)q, &msg, timeout))
     {
-        if (src != NULL)
-        {
-            *src = msg.src;
-        }
-        if (len != NULL)
-        {
-            *len = msg.len;
-        }
+        if (src)    *src = msg.src;
+        if (len)    *len = msg.len;
 
         if (maxlen >= msg.len)
         {
@@ -152,24 +146,18 @@ int rpmsg_queue_recv(struct rpmsg_lite_instance *rpmsg_lite_dev,
     }
 }
 
-int rpmsg_queue_recv_nocopy(struct rpmsg_lite_instance *rpmsg_lite_dev,
-                            rpmsg_queue_handle q,
-                            unsigned long *src,
-                            char **data,
-                            int *len,
-                            unsigned long timeout)
+int
+rpmsg_queue_recv_nocopy(
+    struct rpmsg_lite_instance  *rpmsg_lite_dev,
+    rpmsg_queue_handle  q,
+    unsigned long       *src,
+    char                **data,
+    int                 *len,
+    unsigned long       timeout)
 {
     rpmsg_queue_rx_cb_data_t msg = {0};
 
-    if (!rpmsg_lite_dev)
-    {
-        return RL_ERR_PARAM;
-    }
-    if (!data)
-    {
-        return RL_ERR_PARAM;
-    }
-    if (!q)
+    if (!rpmsg_lite_dev || !data || !q)
     {
         return RL_ERR_PARAM;
     }
@@ -177,14 +165,8 @@ int rpmsg_queue_recv_nocopy(struct rpmsg_lite_instance *rpmsg_lite_dev,
     /* Get an element out of the message queue for the selected endpoint */
     if (env_get_queue((void *)q, &msg, timeout))
     {
-        if (src != NULL)
-        {
-            *src = msg.src;
-        }
-        if (len != NULL)
-        {
-            *len = msg.len;
-        }
+        if (src)    *src = msg.src;
+        if (len)    *len = msg.len;
 
         *data = msg.data;
 
@@ -194,13 +176,12 @@ int rpmsg_queue_recv_nocopy(struct rpmsg_lite_instance *rpmsg_lite_dev,
     return RL_ERR_NO_BUFF; /* failed */
 }
 
-int rpmsg_queue_nocopy_free(struct rpmsg_lite_instance *rpmsg_lite_dev, void *data)
+int
+rpmsg_queue_nocopy_free(
+    struct rpmsg_lite_instance  *rpmsg_lite_dev,
+    void                        *data)
 {
-    if (!rpmsg_lite_dev)
-    {
-        return RL_ERR_PARAM;
-    }
-    if (!data)
+    if (!rpmsg_lite_dev || !data)
     {
         return RL_ERR_PARAM;
     }
@@ -211,7 +192,9 @@ int rpmsg_queue_nocopy_free(struct rpmsg_lite_instance *rpmsg_lite_dev, void *da
     return RL_SUCCESS;
 }
 
-int rpmsg_queue_get_current_size(rpmsg_queue_handle q)
+int
+rpmsg_queue_get_current_size(
+    rpmsg_queue_handle     q)
 {
     if (!q)
     {

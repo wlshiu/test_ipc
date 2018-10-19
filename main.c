@@ -1,131 +1,207 @@
-/*
- * Copyright 2016 Freescale Semiconductor, Inc. All rights reserved.
+/**
+ * Copyright (c) 2018 Wei-Lun Hsu. All Rights Reserved.
+ */
+/** @file main.c
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- * 3. Neither the name of Mentor Graphics Corporation nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * @author Wei-Lun Hsu
+ * @version 0.1
+ * @date 2018/10/19
+ * @license
+ * @description
  */
 
-#include <windows.h>
-#include "pthread.h"
-#include "assert.h"
+#include <stdint.h>
+#include <string.h>
 #include "rpmsg_lite.h"
-#include "rpmsg_queue.h"
-#include "rpmsg_ns.h"
-//#include "FreeRTOS.h"
-//#include "task.h"
-//#include "string.h"
-#include "stdint.h"
-//#include "board.h"
-//#include "debug_console_imx.h"
+#include "platform/rpmsg_platform.h"
+//=============================================================================
+//                  Constant Definition
+//=============================================================================
+#define RPMSG_LITE_LINK_ID                  (RL_PLATFORM_LPC5411x_M4_M0_LINK_ID)
+#define LOCAL_EPT_ADDR                      (30)
+#define REMOTE_EPT_ADDR                     (40)
+//=============================================================================
+//                  Macro Definition
+//=============================================================================
 
-//#define REMOTE_DEFAULT_EPT (TC_REMOTE_EPT_ADDR)
-
-#define TC_LOCAL_EPT_ADDR       (30)
-#define TC_REMOTE_EPT_ADDR      (40)
-
-#define RL_PLATFORM_LINK_ID     0
-
-
-static uint8_t      g_share_buf[512 << 10] = {0};
-void* rpmsg_lite_base = (void*)g_share_buf;//BOARD_SHARED_MEMORY_BASE;
-
-struct rpmsg_lite_endpoint  *ctrl_ept;
-rpmsg_queue_handle          ctrl_q;
-struct rpmsg_lite_instance  *my_rpmsg = NULL;
-
-#define TASK_STACK_SIZE         300
-
-/*
- * MU Interrrupt ISR
- */
-void BOARD_MU_HANDLER (void)
+//=============================================================================
+//                  Structure Definition
+//=============================================================================
+typedef struct msg_box
 {
-    /*
-     * calls into rpmsg_handler provided by middleware
-     */
-//    rpmsg_handler();
-    printf("%s[%d]\n", __FILE__, __LINE__);
+    uint32_t    data;
+} msg_box_t;
+//=============================================================================
+//                  Global Data Definition
+//=============================================================================
+static uint32_t         g_share_mem[500 << 10] = {0};
+
+#define RPMSG_LITE_SHMEM_BASE       (&g_share_mem)
+#define RPMSG_LITE_SHMEM_SIZE       sizeof(g_share_mem)
+
+
+static unsigned long        g_remote_addr = 0lu;
+//=============================================================================
+//                  Private Function Definition
+//=============================================================================
+static int
+_cb_remote_ept_read(
+    void            *payload,
+    int             payload_len,
+    unsigned long   src,
+    void            *priv)
+{
+    int     *pHas_received = priv;
+
+    if (payload_len <= sizeof(msg_box_t))
+    {
+        msg_box_t   msg = {0};
+
+        memcpy((void *)&msg, payload, payload_len);
+        g_remote_addr = src;
+        *pHas_received = 1;
+//        printf("The m0+ core received msg from m4 core\r\n");
+//        printf("Message: Size=%x, DATA = %i\n\r", payload_len, msg.DATA);
+    }
+    return RL_RELEASE;
 }
 
-void* test(void *unused)
+static void
+_core_remote()
 {
-    int             recved = 0;
-    unsigned long   src;
-    char            buf[256];
-    int             len;
+    char                                        ch = 0;
+    volatile int                                has_received = 0;
+    struct rpmsg_lite_ept_static_context        my_ept_context;
+    struct rpmsg_lite_endpoint                  *my_ept;
+    struct rpmsg_lite_instance                  rpmsg_ctxt;
+    struct rpmsg_lite_instance                  *my_rpmsg;
 
-//    hardware_init();
-//    printf("Hardware initialized\r\n");
+    my_rpmsg = rpmsg_lite_remote_init((void *)RPMSG_LITE_SHMEM_BASE,
+                                      RPMSG_LITE_LINK_ID,
+                                      RL_NO_FLAGS,
+                                      &rpmsg_ctxt);
 
-    env_init();
+    while (!rpmsg_lite_is_link_up(my_rpmsg))
+        ;
 
-    my_rpmsg = rpmsg_lite_remote_init(rpmsg_lite_base, RL_PLATFORM_LINK_ID, RL_NO_FLAGS);
-    ctrl_q   = rpmsg_queue_create(my_rpmsg);
-    ctrl_ept = rpmsg_lite_create_ept(my_rpmsg, TC_LOCAL_EPT_ADDR, rpmsg_queue_rx_cb, ctrl_q);
-    printf("Waiting for master to get ready...\r\n");
+    my_ept = rpmsg_lite_create_ept(my_rpmsg,
+                                   LOCAL_EPT_ADDR,
+                                   _cb_remote_ept_read,
+                                   (void *)&has_received,
+                                   &my_ept_context);
 
-    while(!rpmsg_lite_is_link_up(my_rpmsg))
+#ifdef RPMSG_LITE_NS_USED
+    rpmsg_ns_announce(my_rpmsg, my_ept, RPMSG_LITE_NS_ANNOUNCE_STRING, RL_NS_CREATE);
+#endif /*RPMSG_LITE_NS_USED*/
+
+    msg_box_t       msg = {0};
+
+    has_received = 0;
+    //msg.data=ch;
+    while (1) //rx received data
     {
-        printf(".");
-        Sleep(10);
+//        ch = GETCHAR(); // get date from callback
+        msg.data = ch - 49;
+
+        if (msg.data)
+        {
+            has_received = 0;
+            // msg.DATA++;
+            rpmsg_lite_send(my_rpmsg, my_ept,
+                            g_remote_addr,
+                            (char *)&msg, sizeof(msg_box_t),
+                            RL_DONT_BLOCK);
+        }
     }
 
-    printf("Sending name service announcement to Linux...\r\n");
-    rpmsg_ns_announce(my_rpmsg, ctrl_ept, "rpmsg-openamp-demo-channel", RL_NS_CREATE);
-    printf("Waiting for any messages from Linux...\r\n");
-
-    while(1)
-    {
-        rpmsg_queue_recv(my_rpmsg, ctrl_q, &src, (char*)buf, 256, &recved, RL_BLOCK);
-        printf("\n\n\rFrom endpoint %d received %d bytes:\n\r", (int)src, recved);
-        printf(buf);
-
-        len = sprintf(buf, "Oh you don't say number %d!", (int)src);
-        printf("\n\n\rSending %d bytes to endpoint %d:\n\r ", len, src);
-        printf(buf);
-
-        rpmsg_lite_send(my_rpmsg, ctrl_ept, src, buf, len, RL_BLOCK);
-    }
-
-
-    rpmsg_lite_destroy_ept(my_rpmsg, ctrl_ept);
-    rpmsg_queue_destroy(my_rpmsg, ctrl_q);
+    rpmsg_lite_destroy_ept(my_rpmsg, my_ept);
+    my_ept = NULL;
     rpmsg_lite_deinit(my_rpmsg);
-
-
-    while (1)
-        asm("nop");
+    msg.data = 0;
+    return;
 }
 
-int main(void)
+
+static int
+_cb_master_ept_read(
+    void            *payload,
+    int             payload_len,
+    unsigned long   src,
+    void            *priv)
 {
-    pthread_t   t1;
+    int *pHas_received = priv;
 
-    pthread_create(&t1, 0, test, 0);
+    if (payload_len <= sizeof(msg_box_t))
+    {
+        msg_box_t   msg = {0};
+        memcpy((void *)&msg, payload, payload_len);
+        *pHas_received = 1;
 
-    pthread_join(t1, 0);
+        msg.data++;
+    // printf("Primary core received a msg\n\r");
+    // printf("Message: Size=%x, DATA = %i\n\r", payload_len, msg.data);
+    }
+
+    return RL_RELEASE;
+}
+
+static void
+_core_master()
+{
+    volatile int                            has_received;
+    struct rpmsg_lite_ept_static_context    my_ept_context;
+    struct rpmsg_lite_endpoint              *my_ept;
+    struct rpmsg_lite_instance              rpmsg_ctxt;
+    struct rpmsg_lite_instance              *my_rpmsg;
+
+    my_rpmsg = rpmsg_lite_master_init(RPMSG_LITE_SHMEM_BASE,
+                                      RPMSG_LITE_SHMEM_SIZE,
+                                      RPMSG_LITE_LINK_ID,
+                                      RL_NO_FLAGS,
+                                      &rpmsg_ctxt);
+
+    my_ept = rpmsg_lite_create_ept(my_rpmsg,
+                                   LOCAL_EPT_ADDR,
+                                   _cb_master_ept_read,
+                                   (void *)&has_received,
+                                   &my_ept_context);
+
+    has_received = 0;
+
+    msg_box_t       msg = {0};
+
+    /* Send the first message to the remoteproc */
+    msg.data = 10;
+    rpmsg_lite_send(my_rpmsg, my_ept,
+                    REMOTE_EPT_ADDR,
+                    (char *)&msg,
+                    sizeof(msg_box_t),
+                    RL_DONT_BLOCK);
+
+    while (msg.data <= 100)
+    {
+        if (has_received)
+        {
+            has_received = 0;
+            msg.data++;
+            rpmsg_lite_send(my_rpmsg, my_ept,
+                            REMOTE_EPT_ADDR,
+                            (char *)&msg,
+                            sizeof(msg_box_t),
+                            RL_DONT_BLOCK);
+        }
+    }
+
+    rpmsg_lite_destroy_ept(my_rpmsg, my_ept);
+    my_ept = NULL;
+    rpmsg_lite_deinit(my_rpmsg);
+    return;
+}
+//=============================================================================
+//                  Public Function Definition
+//=============================================================================
+int main()
+{
+    _core_master();
     return 0;
 }
-
-

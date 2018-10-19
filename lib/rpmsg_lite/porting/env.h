@@ -1,9 +1,8 @@
 /*
  * Copyright (c) 2014, Mentor Graphics Corporation
- * Copyright (c) 2015 Xilinx, Inc.
- * Copyright (c) 2016 Freescale Semiconductor, Inc.
- * Copyright 2016 NXP
  * All rights reserved.
+ * Copyright (c) 2015 Xilinx, Inc. All rights reserved.
+ * Copyright (c) 2015 Freescale Semiconductor, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -13,7 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 3. Neither the name of the copyright holder nor the names of its
+ * 3. Neither the name of Mentor Graphics Corporation nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
  *
@@ -30,58 +29,60 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/**************************************************************************
-* FILE NAME
-*
-*       rpmsg_env.h
-*
-* COMPONENT
-*
-*         OpenAMP stack.
-*
-* DESCRIPTION
-*
-*       This file defines abstraction layer for OpenAMP stack. The implementor
-*       must provide definition of all the functions.
-*
-* DATA STRUCTURES
-*
-*        none
-*
-* FUNCTIONS
-*
-*       env_allocate_memory
-*       env_free_memory
-*       env_memset
-*       env_memcpy
-*       env_strncpy
-*       env_print
-*       env_map_vatopa
-*       env_map_patova
-*       env_mb
-*       env_rmb
-*       env_wmb
-*       env_create_mutex
-*       env_delete_mutex
-*       env_lock_mutex
-*       env_unlock_mutex
-*       env_sleep_msec
-*       env_disable_interrupt
-*       env_enable_interrupt
-*       env_create_queue
-*       env_delete_queue
-*       env_put_queue
-*       env_get_queue
-*
-**************************************************************************/
-#ifndef _RPMSG_ENV_H_
-#define _RPMSG_ENV_H_
+ /**************************************************************************
+ * FILE NAME
+ *
+ *       env.h
+ *
+ * COMPONENT
+ *
+ *         OpenAMP stack.
+ *
+ * DESCRIPTION
+ *
+ *       This file defines abstraction layer for OpenAMP stack. The implementor
+ *       must provide definition of all the functions.
+ *
+ * DATA STRUCTURES
+ *
+ *        none
+ *
+ * FUNCTIONS
+ *
+ *       env_allocate_memory
+ *       env_free_memory
+ *       env_memset
+ *       env_memcpy
+ *       env_strlen
+ *       env_strcpy
+ *       env_strncpy
+ *       env_print
+ *       env_map_vatopa
+ *       env_map_patova
+ *       env_mb
+ *       env_rmb
+ *       env_wmb
+ *       env_create_mutex
+ *       env_delete_mutex
+ *       env_lock_mutex
+ *       env_unlock_mutex
+ *       env_sleep_msec
+ *       env_disable_interrupts
+ *       env_restore_interrupts
+ *       env_create_queue
+ *       env_delete_queue
+ *       env_put_queue
+ *       env_get_queue
+ *
+ **************************************************************************/
+#ifndef _ENV_H_
+#define _ENV_H_
 
+#include <stdint.h>
 #include <stdio.h>
-#include "rpmsg_default_config.h"
-#include "platform/rpmsg_platform.h"
 
-/*!
+
+/**
  * env_init
  *
  * Initializes OS/BM environment.
@@ -91,7 +92,7 @@
 
 int env_init(void);
 
-/*!
+/**
  * env_deinit
  *
  * Uninitializes OS/BM environment.
@@ -100,7 +101,7 @@ int env_init(void);
  */
 
 int env_deinit(void);
-/*!
+/**
  * -------------------------------------------------------------------------
  *
  * Dynamic memory management functions. The parameters
@@ -109,7 +110,7 @@ int env_deinit(void);
  *-------------------------------------------------------------------------
  **/
 
-/*!
+/**
  * env_allocate_memory
  *
  * Allocates memory with the given size.
@@ -120,7 +121,7 @@ int env_deinit(void);
  */
 void *env_allocate_memory(unsigned int size);
 
-/*!
+/**
  * env_free_memory
  *
  * Frees memory pointed by the given parameter.
@@ -129,7 +130,7 @@ void *env_allocate_memory(unsigned int size);
  */
 void env_free_memory(void *ptr);
 
-/*!
+/**
  * -------------------------------------------------------------------------
  *
  * RTL Functions
@@ -137,14 +138,17 @@ void env_free_memory(void *ptr);
  *-------------------------------------------------------------------------
  */
 
-void env_memset(void *ptr, int value, unsigned long size);
-void env_memcpy(void *dst, void const *src, unsigned long len);
-int env_strcmp(const char *dst, const char *src);
-void env_strncpy(char *dest, const char *src, unsigned long len);
-int env_strncmp(char *dest, const char *src, unsigned long len);
-#define env_print(...) printf(__VA_ARGS__)
+void env_memset(void *, int, unsigned long);
+void env_memcpy(void *, void const *, unsigned long);
+size_t env_strlen(const char *);
+void env_strcpy(char *, const char *);
+int env_strcmp(const char *, const char *);
+void env_strncpy(char *, const char *, unsigned long);
+int env_strncmp(char *, const char *, unsigned long);
+//#define env_print(...)  printf(__VA_ARGS__)
+#define env_print(...)
 
-/*!
+/**
  *-----------------------------------------------------------------------------
  *
  *  Functions to convert physical address to virtual address and vice versa.
@@ -152,7 +156,7 @@ int env_strncmp(char *dest, const char *src, unsigned long len);
  *-----------------------------------------------------------------------------
  */
 
-/*!
+/**
  * env_map_vatopa
  *
  * Converts logical address to physical address
@@ -163,7 +167,7 @@ int env_strncmp(char *dest, const char *src, unsigned long len);
  */
 unsigned long env_map_vatopa(void *address);
 
-/*!
+/**
  * env_map_patova
  *
  * Converts physical address to logical address
@@ -175,7 +179,7 @@ unsigned long env_map_vatopa(void *address);
  */
 void *env_map_patova(unsigned long address);
 
-/*!
+/**
  *-----------------------------------------------------------------------------
  *
  *  Abstractions for memory barrier instructions.
@@ -183,7 +187,7 @@ void *env_map_patova(unsigned long address);
  *-----------------------------------------------------------------------------
  */
 
-/*!
+/**
  * env_mb
  *
  * Inserts memory barrier.
@@ -191,7 +195,7 @@ void *env_map_patova(unsigned long address);
 
 void env_mb(void);
 
-/*!
+/**
  * env_rmb
  *
  * Inserts read memory barrier
@@ -199,7 +203,7 @@ void env_mb(void);
 
 void env_rmb(void);
 
-/*!
+/**
  * env_wmb
  *
  * Inserts write memory barrier
@@ -207,7 +211,7 @@ void env_rmb(void);
 
 void env_wmb(void);
 
-/*!
+/**
  *-----------------------------------------------------------------------------
  *
  *  Abstractions for OS lock primitives.
@@ -215,7 +219,7 @@ void env_wmb(void);
  *-----------------------------------------------------------------------------
  */
 
-/*!
+/**
  * env_create_mutex
  *
  * Creates a mutex with given initial count.
@@ -225,9 +229,9 @@ void env_wmb(void);
  *
  * @return - status of function execution
  */
-int env_create_mutex(void **lock, int count);
+int env_create_mutex(void **lock , int count);
 
-/*!
+/**
  * env_delete_mutex
  *
  * Deletes the given lock.
@@ -237,7 +241,7 @@ int env_create_mutex(void **lock, int count);
 
 void env_delete_mutex(void *lock);
 
-/*!
+/**
  * env_lock_mutex
  *
  * Tries to acquire the lock, if lock is not available then call to
@@ -249,7 +253,7 @@ void env_delete_mutex(void *lock);
 
 void env_lock_mutex(void *lock);
 
-/*!
+/**
  * env_unlock_mutex
  *
  * Releases the given lock.
@@ -259,7 +263,7 @@ void env_lock_mutex(void *lock);
 
 void env_unlock_mutex(void *lock);
 
-/*!
+/**
  * env_create_sync_lock
  *
  * Creates a synchronization lock primitive. It is used
@@ -271,12 +275,12 @@ void env_unlock_mutex(void *lock);
  *
  * @returns - status of function execution
  */
-#define LOCKED 0
-#define UNLOCKED 1
+#define LOCKED			0
+#define UNLOCKED		1
 
-int env_create_sync_lock(void **lock, int state);
+int env_create_sync_lock(void **lock , int state);
 
-/*!
+/**
  * env_create_sync_lock
  *
  * Deletes given sync lock object.
@@ -287,7 +291,8 @@ int env_create_sync_lock(void **lock, int state);
 
 void env_delete_sync_lock(void *lock);
 
-/*!
+
+/**
  * env_acquire_sync_lock
  *
  * Tries to acquire the sync lock.
@@ -296,7 +301,7 @@ void env_delete_sync_lock(void *lock);
  */
 void env_acquire_sync_lock(void *lock);
 
-/*!
+/**
  * env_release_sync_lock
  *
  * Releases synchronization lock.
@@ -305,7 +310,7 @@ void env_acquire_sync_lock(void *lock);
  */
 void env_release_sync_lock(void *lock);
 
-/*!
+/**
  * env_sleep_msec
  *
  * Suspends the calling thread for given time in msecs.
@@ -314,46 +319,62 @@ void env_release_sync_lock(void *lock);
  */
 void env_sleep_msec(int num_msec);
 
-/*!
+/**
+ * env_disable_interrupts
+ *
+ * Disables system interrupts
+ *
+ */
+void env_disable_interrupts(void);
+
+/**
+ * env_restore_interrupts
+ *
+ * Enables system interrupts
+ *
+ */
+void env_restore_interrupts(void);
+
+/**
  * env_register_isr
  *
- * Registers interrupt handler data for the given interrupt vector.
+ * Registers interrupt handler for the given interrupt vector.
  *
- * @param vector_id - virtual interrupt vector number
- * @param data      - interrupt handler data (virtqueue)
+ * @param vector - interrupt vector number
+ * @param data   - private data
+ * @param isr    - interrupt handler
  */
-void env_register_isr(int vector_id, void *data);
 
-/*!
- * env_unregister_isr
- *
- * Unregisters interrupt handler data for the given interrupt vector.
- *
- * @param vector_id - virtual interrupt vector number
- */
-void env_unregister_isr(int vector_id);
+void env_register_isr(int vector, void *data,
+                void (*isr)(int vector, void *data));
 
-/*!
+void env_update_isr(int vector, void *data,
+                void (*isr)(int vector, void *data));
+
+/**
  * env_enable_interrupt
  *
- * Enables the given interrupt
+ * Enables the given interrupt.
  *
- * @param vector_id   - virtual interrupt vector number
+ * @param vector   - interrupt vector number
+ * @param priority - interrupt priority
+ * @param polarity - interrupt polarity
  */
 
-void env_enable_interrupt(unsigned int vector_id);
+void env_enable_interrupt(unsigned int vector, unsigned int priority,
+                unsigned int polarity);
 
-/*!
+/**
  * env_disable_interrupt
  *
  * Disables the given interrupt.
  *
- * @param vector_id   - virtual interrupt vector number
+ * @param vector   - interrupt vector number
  */
 
-void env_disable_interrupt(unsigned int vector_id);
+void env_disable_interrupt(unsigned int vector);
 
-/*!
+/**
  * env_map_memory
  *
  * Enables memory mapping for given memory region.
@@ -380,19 +401,21 @@ void env_disable_interrupt(unsigned int vector_id);
  */
 
 /* Macros for caching scheme used by the shared memory */
-#define UNCACHED    (1 << 0)
-#define WB_CACHE    (1 << 1)
-#define WT_CACHE    (1 << 2)
+#define UNCACHED                            (1 << 0)
+#define WB_CACHE                            (1 << 1)
+#define WT_CACHE                            (1 << 2)
 
 /* Memory Types */
-#define MEM_MAPPED  (1 << 4)
-#define IO_MAPPED   (1 << 5)
-#define SHARED_MEM  (1 << 6)
-#define TLB_MEM     (1 << 7)
+#undef MEM_MAPPED
+#define MEM_MAPPED                          (1 << 4)
+#define IO_MAPPED                           (1 << 5)
+#define SHARED_MEM                          (1 << 6)
+#define TLB_MEM                             (1 << 7)
 
-void env_map_memory(unsigned int pa, unsigned int va, unsigned int size, unsigned int flags);
+void env_map_memory(unsigned int pa, unsigned int va, unsigned int size,
+                unsigned int flags);
 
-/*!
+/**
  * env_get_timestamp
  *
  * Returns a 64 bit time stamp.
@@ -401,7 +424,7 @@ void env_map_memory(unsigned int pa, unsigned int va, unsigned int size, unsigne
  */
 unsigned long long env_get_timestamp(void);
 
-/*!
+/**
  * env_disable_cache
  *
  * Disables system caches.
@@ -410,9 +433,9 @@ unsigned long long env_get_timestamp(void);
 
 void env_disable_cache(void);
 
-typedef void    LOCK;
+typedef void LOCK;
 
-/*!
+/**
  * env_create_queue
  *
  * Creates a message queue.
@@ -423,9 +446,9 @@ typedef void    LOCK;
  *
  * @return - status of function execution
  */
-int env_create_queue(void **queue, int length, int element_size);
+int env_create_queue(void **queue, int length , int element_size);
 
-/*!
+/**
  * env_delete_queue
  *
  * Deletes the message queue.
@@ -435,7 +458,7 @@ int env_create_queue(void **queue, int length, int element_size);
 
 void env_delete_queue(void *queue);
 
-/*!
+/**
  * env_put_queue
  *
  * Put an element in a queue.
@@ -447,9 +470,9 @@ void env_delete_queue(void *queue);
  * @return - status of function execution
  */
 
-int env_put_queue(void *queue, void *msg, int timeout_ms);
+int env_put_queue(void *queue, void* msg, int timeout_ms);
 
-/*!
+/**
  * env_get_queue
  *
  * Get an element out of a queue.
@@ -461,21 +484,9 @@ int env_put_queue(void *queue, void *msg, int timeout_ms);
  * @return - status of function execution
  */
 
-int env_get_queue(void *queue, void *msg, int timeout_ms);
+int env_get_queue(void *queue, void* msg, int timeout_ms);
 
-/*!
- * env_get_current_queue_size
- *
- * Get current queue size.
- *
- * @param queue - queue pointer
- *
- * @return - Number of queued items in the queue
- */
-
-int env_get_current_queue_size(void *queue);
-
-/*!
+/**
  * env_isr
  *
  * Invoke RPMSG/IRQ callback
@@ -485,4 +496,4 @@ int env_get_current_queue_size(void *queue);
 
 void env_isr(int vector);
 
-#endif /* _RPMSG_ENV_H_ */
+#endif /* _ENV_H_ */

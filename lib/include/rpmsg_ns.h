@@ -38,7 +38,7 @@
 //! @addtogroup rpmsg_ns
 //! @{
 
-#define RL_NS_EPT_ADDR (0x35)
+#define RL_NS_EPT_ADDR      (0x35)
 
 /* Up to 32 flags available */
 enum rpmsg_ns_flags
@@ -55,28 +55,28 @@ typedef void (*rpmsg_ns_new_ept_cb)(unsigned int new_ept,
                                     unsigned long flags,
                                     void *user_data);
 
-struct rpmsg_ns_callback_data
+typedef struct rpmsg_ns_callback_data
 {
-    rpmsg_ns_new_ept_cb cb;
-    void *user_data;
-};
+    rpmsg_ns_new_ept_cb     cb;
+    void                    *user_data;
+} rpmsg_ns_callback_data_t;
 
-struct rpmsg_ns_context
+typedef struct rpmsg_ns_context
 {
-    struct rpmsg_lite_endpoint *ept;
-    struct rpmsg_ns_callback_data *cb_ctxt;
-};
+    struct rpmsg_lite_endpoint      *ept;
+    struct rpmsg_ns_callback_data   *cb_ctxt;
+} rpmsg_ns_context_t;
 
-typedef struct rpmsg_ns_context *rpmsg_ns_handle;
+typedef struct rpmsg_ns_context*   rpmsg_ns_handle;
 
-struct rpmsg_ns_static_context_container
+typedef struct rpmsg_ns_static_context_container
 {
-    struct rpmsg_lite_ept_static_context ept_ctxt;
-    struct rpmsg_ns_callback_data cb_ctxt;
-    struct rpmsg_ns_context ns_ctxt;
-};
+    struct rpmsg_lite_ept_static_context    ept_ctxt;
+    struct rpmsg_ns_callback_data           cb_ctxt;
+    struct rpmsg_ns_context                 ns_ctxt;
+} rpmsg_ns_static_context_container_t;
 
-typedef struct rpmsg_ns_static_context_container rpmsg_ns_static_context;
+typedef struct rpmsg_ns_static_context_container    rpmsg_ns_static_context;
 
 #if defined(__cplusplus)
 extern "C" {

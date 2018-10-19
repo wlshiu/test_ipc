@@ -41,7 +41,7 @@
 /*! \typedef rpmsg_queue_handle
     \brief Rpmsg queue handle type.
 */
-typedef void *rpmsg_queue_handle;
+typedef void*  rpmsg_queue_handle;
 
 /* RL_API_HAS_ZEROCOPY has to be enabled for RPMsg Queue to work */
 #if defined(RL_API_HAS_ZEROCOPY) && (RL_API_HAS_ZEROCOPY == 1)
@@ -118,13 +118,13 @@ int rpmsg_queue_destroy(struct rpmsg_lite_instance *rpmsg_lite_dev, rpmsg_queue_
  *
  * @see rpmsg_queue_recv_nocopy
  */
-int rpmsg_queue_recv(struct rpmsg_lite_instance *rpmsg_lite_dev,
-                     rpmsg_queue_handle q,
-                     unsigned long *src,
-                     char *data,
-                     int maxlen,
-                     int *len,
-                     unsigned long timeout);
+int rpmsg_queue_recv(struct rpmsg_lite_instance  *rpmsg_lite_dev,
+                     rpmsg_queue_handle     q,
+                     unsigned long          *src,
+                     char                   *data,
+                     int                    maxlen,
+                     int                    *len,
+                     unsigned long          timeout);
 
 /*!
  * @brief
@@ -151,12 +151,12 @@ int rpmsg_queue_recv(struct rpmsg_lite_instance *rpmsg_lite_dev,
  * @see rpmsg_queue_nocopy_free
  * @see rpmsg_queue_recv
  */
-int rpmsg_queue_recv_nocopy(struct rpmsg_lite_instance *rpmsg_lite_dev,
-                            rpmsg_queue_handle q,
-                            unsigned long *src,
-                            char **data,
-                            int *len,
-                            unsigned long timeout);
+int rpmsg_queue_recv_nocopy(struct rpmsg_lite_instance  *rpmsg_lite_dev,
+                            rpmsg_queue_handle  q,
+                            unsigned long       *src,
+                            char                **data,
+                            int                 *len,
+                            unsigned long       timeout);
 
 /*!
  * @brief This function frees a buffer previously returned by rpmsg_queue_recv_nocopy().
@@ -181,7 +181,7 @@ int rpmsg_queue_nocopy_free(struct rpmsg_lite_instance *rpmsg_lite_dev, void *da
  *
  * @return Number of pending messages in the queue.
  */
-int rpmsg_queue_get_current_size(rpmsg_queue_handle q);
+int rpmsg_queue_get_current_size(rpmsg_queue_handle  q);
 
 //! @}
 

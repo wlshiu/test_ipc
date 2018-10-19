@@ -47,10 +47,10 @@
 
 #include <intrinsics.h>
 
-#define MEM_BARRIER() __DSB()
+#define MEM_BARRIER()   __DSB()
 
 #ifndef RL_PACKED_BEGIN
-#define RL_PACKED_BEGIN __packed
+#define RL_PACKED_BEGIN     __packed
 #endif
 
 #ifndef RL_PACKED_END
@@ -60,32 +60,32 @@
 /* GNUC */
 #elif defined(__GNUC__)
 
-#define MEM_BARRIER() asm volatile("dsb" : : : "memory")
+#define MEM_BARRIER()   asm volatile("dsb" : : : "memory")
 
 #ifndef RL_PACKED_BEGIN
 #define RL_PACKED_BEGIN
 #endif
 
 #ifndef RL_PACKED_END
-#define RL_PACKED_END __attribute__((__packed__))
+#define RL_PACKED_END   __attribute__((__packed__))
 #endif
 
 /* ARM GCC */
 #elif defined(__CC_ARM)
 
-#define MEM_BARRIER() __schedule_barrier()
+#define MEM_BARRIER()   __schedule_barrier()
 
 #ifndef RL_PACKED_BEGIN
-#define RL_PACKED_BEGIN _Pragma("pack(1U)")
+#define RL_PACKED_BEGIN     _Pragma("pack(1U)")
 #endif
 
 #ifndef RL_PACKED_END
-#define RL_PACKED_END _Pragma("pack()")
+#define RL_PACKED_END       _Pragma("pack()")
 #endif
 
 #else
-/* There is no default definition here to avoid wrong structures packing in case of not supported compiler */
-#error Please implement the structure packing macros for your compiler here!
+    /* There is no default definition here to avoid wrong structures packing in case of not supported compiler */
+    #error Please implement the structure packing macros for your compiler here!
 #endif
 
 #endif /* _RPMSG_COMPILER_H_ */

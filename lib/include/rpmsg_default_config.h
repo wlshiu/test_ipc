@@ -42,42 +42,41 @@
 /* default values */
 /* START { */
 #ifndef RL_MS_PER_INTERVAL
-#define RL_MS_PER_INTERVAL (1)
+#define RL_MS_PER_INTERVAL          (1)
 #endif
 
 #ifndef RL_BUFFER_PAYLOAD_SIZE
-#define RL_BUFFER_PAYLOAD_SIZE (496)
+#define RL_BUFFER_PAYLOAD_SIZE      (496)
 #endif
 
 #ifndef RL_BUFFER_COUNT
-#define RL_BUFFER_COUNT (2)
+#define RL_BUFFER_COUNT             (2)
 #endif
 
 #ifndef RL_API_HAS_ZEROCOPY
-#define RL_API_HAS_ZEROCOPY (1)
+#define RL_API_HAS_ZEROCOPY         (1)
 #endif
 
 #ifndef RL_USE_STATIC_API
-#define RL_USE_STATIC_API (0)
+#define RL_USE_STATIC_API           (0)
 #endif
 
 #ifndef RL_CLEAR_USED_BUFFERS
-#define RL_CLEAR_USED_BUFFERS (0)
+#define RL_CLEAR_USED_BUFFERS       (0)
 #endif
 
 #ifndef RL_USE_MCMGR_IPC_ISR_HANDLER
-#define RL_USE_MCMGR_IPC_ISR_HANDLER (0)
+#define RL_USE_MCMGR_IPC_ISR_HANDLER    (0)
 #endif
 
 #ifndef RL_ASSERT
-#define RL_ASSERT_BOOL(b)  \
-    do                \
-    {                 \
-        if (!(b))       \
-            while (1) \
-                ;     \
+#define RL_ASSERT_BOOL(b)                               \
+    do{ if (!(b)) {                                     \
+            printf("err %s[%d]\n", __func__, __LINE__); \
+            while (1);}                                 \
     } while (0);
-#define RL_ASSERT(x) RL_ASSERT_BOOL((x)!=0)
+
+#define RL_ASSERT(x)            RL_ASSERT_BOOL((x)!=0)
 #endif
 /* } END */
 
