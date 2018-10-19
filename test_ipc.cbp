@@ -68,7 +68,6 @@
 		<Unit filename="lib/include/rpmsg_queue.h" />
 		<Unit filename="lib/include/virtio_ring.h" />
 		<Unit filename="lib/include/virtqueue.h" />
-		<Unit filename="lib/rpmsg_lite/porting/env.h" />
 		<Unit filename="lib/rpmsg_lite/porting/env_win32.c">
 			<Option compilerVar="CC" />
 		</Unit>

@@ -314,15 +314,16 @@ int virtqueue_create_static(unsigned short id,
         env_memset(vq, 0x00, vq_size);
 
         env_strncpy(vq->vq_name, name, VIRTQUEUE_MAX_NAME_SZ);
+
         vq->vq_queue_index = id;
-        vq->vq_alignment = ring->align;
-        vq->vq_nentries = ring->num_descs;
-        vq->callback = callback;
-        vq->notify = notify;
+        vq->vq_alignment   = ring->align;
+        vq->vq_nentries    = ring->num_descs;
+        vq->callback       = callback;
+        vq->notify         = notify;
 
         // indirect addition  is not supported
         vq->vq_ring_size = vring_size(ring->num_descs, ring->align);
-        vq->vq_ring_mem = (void *)ring->phy_addr;
+        vq->vq_ring_mem  = (void *)ring->phy_addr;
 
         vring_init(&vq->vq_ring, vq->vq_nentries, vq->vq_ring_mem, vq->vq_alignment);
 

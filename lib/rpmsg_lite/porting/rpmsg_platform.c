@@ -39,6 +39,8 @@
 #include "rpmsg_env.h"
 
 
+static void*    lock;
+
 int platform_init_interrupt(int vq_id, void *isr_data)
 {
     return 0;
@@ -51,6 +53,12 @@ int platform_deinit_interrupt(int vq_id)
 
 void platform_notify(int vq_id)
 {
+    /* Trigger IPI (inter-processor interrupt) */
+    env_lock_mutex(lock);
+
+    // TODO: trigger IRQ
+
+    env_unlock_mutex(lock);
 }
 
 /**
@@ -62,6 +70,7 @@ void platform_notify(int vq_id)
  */
 void platform_time_delay(int num_msec)
 {
+    env_sleep_msec(num_msec);
 }
 
 /**
@@ -156,7 +165,7 @@ unsigned long platform_vatopa(void *addr)
  * Dummy implementation
  *
  */
-void *platform_patova(unsigned long addr)
+void* platform_patova(unsigned long addr)
 {
     return ((void *)addr);
 }
@@ -168,6 +177,9 @@ void *platform_patova(unsigned long addr)
  */
 int platform_init(void)
 {
+    /* Create lock used in multi-instanced RPMsg */
+    env_create_mutex(&lock, 1);
+
     return 0;
 }
 
@@ -178,5 +190,8 @@ int platform_init(void)
  */
 int platform_deinit(void)
 {
+    /* Delete lock used in multi-instanced RPMsg */
+    env_delete_mutex(lock);
+    lock = NULL;
     return 0;
 }

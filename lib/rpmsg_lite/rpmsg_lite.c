@@ -658,8 +658,10 @@ rpmsg_lite_format_message(
 
     /* Lock the device to enable exclusive access to virtqueues */
     env_lock_mutex(rpmsg_lite_dev->lock);
+
     /* Get rpmsg buffer for sending message. */
     buffer = rpmsg_lite_dev->vq_ops->vq_tx_alloc(rpmsg_lite_dev->tvq, &buff_len, &idx);
+
     env_unlock_mutex(rpmsg_lite_dev->lock);
 
     if (!buffer && !timeout)
@@ -670,10 +672,11 @@ rpmsg_lite_format_message(
     while (!buffer)
     {
         env_sleep_msec(RL_MS_PER_INTERVAL);
-        env_lock_mutex(rpmsg_lite_dev->lock);
 
+        env_lock_mutex(rpmsg_lite_dev->lock);
         buffer = rpmsg_lite_dev->vq_ops->vq_tx_alloc(rpmsg_lite_dev->tvq, &buff_len, &idx);
         env_unlock_mutex(rpmsg_lite_dev->lock);
+
         tick_count += RL_MS_PER_INTERVAL;
         if ((tick_count >= timeout) && (!buffer))
         {

@@ -271,8 +271,8 @@ void env_unlock_mutex(void *lock);
  *
  * @returns - status of function execution
  */
-#define LOCKED 0
-#define UNLOCKED 1
+#define LOCKED      0
+#define UNLOCKED    1
 
 int env_create_sync_lock(void **lock, int state);
 

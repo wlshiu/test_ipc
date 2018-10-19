@@ -12,7 +12,7 @@
 
 
 
-#include "env.h"
+#include "rpmsg_env.h"
 #include <stdlib.h>
 #include <string.h>
 #include "pthread.h"
@@ -332,8 +332,9 @@ void env_sleep_msec(int num_msec)
  * Disables system interrupts
  *
  */
-void env_disable_interrupts()
+void env_disable_interrupts(unsigned int vector_id)
 {
+    return;
 }
 
 /**
@@ -349,22 +350,16 @@ void env_restore_interrupts()
 /**
  * env_register_isr
  *
- * Registers interrupt handler for the given interrupt vector.
+ * Registers interrupt handler data for the given interrupt vector.
  *
- * @param vector - interrupt vector number
- * @param isr    - interrupt handler
+ * @param vector_id - virtual interrupt vector number
+ * @param data      - interrupt handler data (virtqueue)
  */
-void env_register_isr(int vector, void *data,
-                      void (*isr)(int vector, void *data))
+void env_register_isr(int vector_id, void *data)
 {
 
 }
 
-void env_update_isr(int vector, void *data,
-                    void (*isr)(int vector, void *data))
-{
-
-}
 
 /**
  * env_enable_interrupt
@@ -376,10 +371,10 @@ void env_update_isr(int vector, void *data,
  * @param polarity - interrupt polarity
  */
 
-void env_enable_interrupt(unsigned int vector, unsigned int priority,
-                          unsigned int polarity)
+void env_enable_interrupt(unsigned int vector_id)
 {
-
+    platform_interrupt_disable(vector_id);
+    return;
 }
 
 /**
@@ -408,6 +403,8 @@ void env_disable_interrupt(unsigned int vector)
 void env_map_memory(unsigned int pa, unsigned int va, unsigned int size,
                     unsigned int flags)
 {
+    platform_map_mem_region(va, pa, size, flags);
+    return;
 }
 
 /**
@@ -419,6 +416,9 @@ void env_map_memory(unsigned int pa, unsigned int va, unsigned int size,
 
 void env_disable_cache()
 {
+    platform_cache_all_flush_invalidate();
+    platform_cache_disable();
+    return;
 }
 
 /**
