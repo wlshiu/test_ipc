@@ -39,6 +39,22 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
+		<Unit filename="core_info.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="core_info.h" />
+		<Unit filename="core_master.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="core_master.h" />
+		<Unit filename="core_remote.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="core_remote.h" />
+		<Unit filename="irq_queue.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="irq_queue.h" />
 		<Unit filename="lib/common/llist.c">
 			<Option compilerVar="CC" />
 		</Unit>
