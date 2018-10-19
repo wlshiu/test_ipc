@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2018 Wei-Lun Hsu. All Rights Reserved.
  */
-/** @file main.c
+/** @file share_info.h
  *
  * @author Wei-Lun Hsu
  * @version 0.1
@@ -10,21 +10,22 @@
  * @description
  */
 
+#ifndef __share_info_H_wuVuuNQt_lzJp_HjuT_sty6_uSe96mud7vom__
+#define __share_info_H_wuVuuNQt_lzJp_HjuT_sty6_uSe96mud7vom__
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#include <windows.h>
-
-#include "core_master.h"
-#include "core_remote.h"
-
-#include "irq_queue.h"
+#include <stdint.h>
+#include "platform/rpmsg_platform.h"
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
-
+//=============================================================================
+#define RPMSG_LITE_LINK_ID                  (RL_PLATFORM_LPC5411x_M4_M0_LINK_ID)
+#define LOCAL_EPT_ADDR                      (30)
+#define REMOTE_EPT_ADDR                     (40)
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
@@ -32,18 +33,17 @@
 //=============================================================================
 //                  Structure Definition
 //=============================================================================
-
+typedef struct msg_box
+{
+    uint32_t    data;
+} msg_box_t;
 //=============================================================================
 //                  Global Data Definition
 //=============================================================================
-core_attr_t         g_core_attr[CORE_ID_TOTAL];
+extern uint32_t         g_share_mem[500 << 10];
 
-queue_handle_t      g_vring_irq_q_0;
-queue_handle_t      g_vring_irq_q_1;
-
-pthread_mutex_t      g_log_mtx;
-
-uint32_t         g_share_mem[500 << 10] = {0};
+#define RPMSG_LITE_SHMEM_BASE       (&g_share_mem)
+#define RPMSG_LITE_SHMEM_SIZE       sizeof(g_share_mem)
 //=============================================================================
 //                  Private Function Definition
 //=============================================================================
@@ -51,32 +51,9 @@ uint32_t         g_share_mem[500 << 10] = {0};
 //=============================================================================
 //                  Public Function Definition
 //=============================================================================
-int main()
-{
-    srand(clock());
 
-    memset(&g_core_attr, 0x0, sizeof(g_core_attr));
-
-    queue_init(&g_vring_irq_q_0);
-    queue_init(&g_vring_irq_q_1);
-    pthread_mutex_init(&g_log_mtx, 0);
-
-    //--------------------------------
-    // assign basic info
-    g_core_attr[CORE_ID_MASTER].core_id     = CORE_ID_MASTER;
-    g_core_attr[CORE_ID_REMOTE_1].core_id   = CORE_ID_REMOTE_1;
-
-    //---------------------------------------
-    // initialize cores
-    core_master_init(&g_core_attr[CORE_ID_MASTER]);
-    core_remote_init(&g_core_attr[CORE_ID_REMOTE_1]);
-
-    core_irq_simulator(&g_core_attr[CORE_ID_MASTER], CORE_ID_TOTAL);
-
-    //------------------------------
-    // start
-    core_master_boot(&g_core_attr[CORE_ID_MASTER], CORE_ID_TOTAL);
-
-    while(1)    Sleep((DWORD)-1);
-    return 0;
+#ifdef __cplusplus
 }
+#endif
+
+#endif

@@ -15,6 +15,11 @@
 #include "core_remote.h"
 
 #include "irq_queue.h"
+
+#include "rpmsg_lite.h"
+#include "platform/rpmsg_platform.h"
+
+#include "share_info.h"
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
@@ -52,19 +57,18 @@
 //=============================================================================
 //                  Global Data Definition
 //=============================================================================
-static uint32_t                 g_rpmsg_ready = 0;
-
 static pthread_cond_t           g_cond_rpmsg_rx;
 static pthread_mutex_t          g_mtx_rpmsg_rx;
 
 static vring_isr_info_t         g_vring_isr[2] = {0};
+
+static unsigned long            g_remote_addr = 0lu;
 
 extern queue_handle_t      g_vring_irq_q_0;
 extern queue_handle_t      g_vring_irq_q_1;
 //=============================================================================
 //                  Private Function Definition
 //=============================================================================
-
 static void
 _isr_core_remote(void)
 {
@@ -82,27 +86,94 @@ _isr_core_remote(void)
 //
 //        trace_leave();
 //    }
-//    return;
+    return;
+}
+
+static int
+_cb_remote_ept_read(
+    void            *payload,
+    int             payload_len,
+    unsigned long   src,
+    void            *priv)
+{
+    int     *pHas_received = priv;
+
+    if (payload_len <= sizeof(msg_box_t))
+    {
+        msg_box_t   msg = {0};
+
+        memcpy((void *)&msg, payload, payload_len);
+        g_remote_addr = src;
+        *pHas_received = 1;
+
+        // printf("The m0+ core received msg from m4 core\r\n");
+        // printf("Message: Size=%x, DATA = %i\n\r", payload_len, msg.DATA);
+    }
+    return RL_RELEASE;
 }
 
 static void*
 _task_core_remote(void *argv)
 {
     core_attr_t         *pAttr_core = (core_attr_t*)argv;
+    char                                   ch = 0;
+    volatile int                           has_received = 0;
+    rpmsg_lite_ept_static_context_t        my_ept_context;
+    rpmsg_lite_endpoint_t                  *my_ept;
+    rpmsg_lite_instance_t                  rpmsg_ctxt;
+    rpmsg_lite_instance_t                  *my_rpmsg;
+    msg_box_t                               msg = {0};
 
     pthread_detach(pthread_self());
 
     pthread_cond_init(&g_cond_rpmsg_rx, NULL);
     pthread_mutex_init(&g_mtx_rpmsg_rx, NULL);
 
+    my_rpmsg = rpmsg_lite_remote_init((void *)RPMSG_LITE_SHMEM_BASE,
+                                      RPMSG_LITE_LINK_ID,
+                                      RL_NO_FLAGS,
+                                      &rpmsg_ctxt);
+
+    while (!rpmsg_lite_is_link_up(my_rpmsg))
+    {
+        // wait
+    }
+
+    my_ept = rpmsg_lite_create_ept(my_rpmsg,
+                                   LOCAL_EPT_ADDR,
+                                   _cb_remote_ept_read,
+                                   (void *)&has_received,
+                                   &my_ept_context);
+
+#ifdef RPMSG_LITE_NS_USED
+    rpmsg_ns_announce(my_rpmsg, my_ept, RPMSG_LITE_NS_ANNOUNCE_STRING, RL_NS_CREATE);
+#endif /*RPMSG_LITE_NS_USED*/
 
     while(1)
     {
-//        if( !g_rpmsg_ready )
-//            continue;
+        // ch = GETCHAR(); // get date from callback
+        msg.data = ch - 49;
+
+        if( msg.data )
+        {
+            has_received = 0;
+
+            // msg.DATA++;
+            rpmsg_lite_send(my_rpmsg, my_ept,
+                            g_remote_addr,
+                            (char *)&msg,
+                            sizeof(msg_box_t),
+                            RL_DONT_BLOCK);
+        }
 
         Sleep((rand() >> 5)& 0x3);
     }
+
+    rpmsg_lite_destroy_ept(my_rpmsg, my_ept);
+    my_ept = NULL;
+
+    rpmsg_lite_deinit(my_rpmsg);
+
     pthread_exit(0);
     return 0;
 }
@@ -113,8 +184,6 @@ int
 core_remote_init(
     core_attr_t     *pAttr_core)
 {
-    g_rpmsg_ready = 0;
-
     pAttr_core->pf_irs = _isr_core_remote;
     return 0;
 }
