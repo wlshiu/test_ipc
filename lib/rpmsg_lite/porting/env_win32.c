@@ -19,10 +19,13 @@
 
 #include <windows.h>
 
+#include "virtqueue.h"
+#include "platform/rpmsg_platform.h"
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
-
+/* Max supported ISR counts */
+#define ISR_COUNT           (12)
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
@@ -30,10 +33,18 @@
 //=============================================================================
 //                  Structure Definition
 //=============================================================================
-
+/*!
+* Structure to keep track of registered ISR's.
+*/
+typedef struct isr_info
+{
+    void *data;
+} isr_info_t;
 //=============================================================================
 //                  Global Data Definition
 //=============================================================================
+
+static isr_info_t       g_isr_table[ISR_COUNT];
 
 //=============================================================================
 //                  Private Function Definition
@@ -357,7 +368,28 @@ void env_restore_interrupts()
  */
 void env_register_isr(int vector_id, void *data)
 {
+    if( vector_id < ISR_COUNT )
+    {
+        g_isr_table[vector_id].data = data;
+    }
+    return;
+}
 
+
+/*!
+ * env_unregister_isr
+ *
+ * Unregisters interrupt handler data for the given interrupt vector.
+ *
+ * @param vector_id - virtual interrupt vector number
+ */
+void env_unregister_isr(int vector_id)
+{
+    if( vector_id < ISR_COUNT )
+    {
+        g_isr_table[vector_id].data = NULL;
+    }
+    return;
 }
 
 
@@ -512,6 +544,26 @@ int env_get_queue(void *queue, void* msg, int timeout_ms)
 int env_get_current_queue_size(void *queue)
 {
     return 0;
+}
+
+/*!
+ * env_isr
+ *
+ * Invoke RPMSG/IRQ callback
+ *
+ * @param vector - RPMSG IRQ vector ID.
+ */
+
+void env_isr(int vector_id)
+{
+    struct isr_info     *pInfo;
+
+    if( vector_id < ISR_COUNT )
+    {
+        pInfo = &g_isr_table[vector_id];
+        virtqueue_notification((struct virtqueue *)pInfo->data);
+    }
+    return;
 }
 //=============================================================================
 //                  Public Function Definition

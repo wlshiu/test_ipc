@@ -24,11 +24,12 @@
 //=============================================================================
 //                  Constant Definition
 //=============================================================================
-
+#define LOCAL_EPT_ADDR                      EPT_ADDR_1
+#define REMOTE_EPT_ADDR                     EPT_ADDR_0
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
-#if 0
+#if 1
 #define trace_enter()                do{ extern pthread_mutex_t   g_log_mtx; \
                                         pthread_mutex_lock(&g_log_mtx); \
                                         printf("%s[%d][master] enter\n", __func__, __LINE__); \
@@ -64,35 +65,62 @@ typedef struct remote_table
 //                  Global Data Definition
 //=============================================================================
 static remote_table_t           g_remote_table = {0};
-static struct rpmsg_channel     *g_pAact_chnnl = 0;
 
 static pthread_cond_t           g_cond_rpmsg_rx;
 static pthread_mutex_t          g_mtx_rpmsg_rx;
 
-static vring_isr_info_t         g_vring_isr[2] = {0};
-
-extern queue_handle_t      g_vring_irq_q_0;
-extern queue_handle_t      g_vring_irq_q_1;
+extern core_attr_t         g_core_attr[CORE_ID_TOTAL];
 //=============================================================================
 //                  Private Function Definition
 //=============================================================================
 static void
+_master_trigger_irq(
+    core_attr_t     *pAttr)
+{
+    static int     core_event = 0;
+    queue_push(pAttr->pRemote_irq_q, core_event++);
+    return;
+}
+
+static void
+_master_notify(int vector_id)
+{
+    core_attr_t     *pAttr_cur = &g_core_attr[CORE_ID_MASTER];
+
+    trace_enter();
+
+    switch( RL_GET_LINK_ID(vector_id) )
+    {
+        case RPMSG_LITE_CHANNEL_0:
+            queue_push(pAttr_cur->pVring_tx_q, vector_id);
+
+            _master_trigger_irq(pAttr_cur);
+            break;
+        default:    break;
+    }
+
+    return;
+}
+
+static platform_ops_t   g_master_platform_ops =
+{
+    .notify = _master_notify,
+};
+//--------------------------------------
+
+static void
 _isr_core_master(void)
 {
-//    uint32_t                        vect_id = (uint32_t)-1;
-//
-//    trace_enter();
-//    queue_pop(&g_vring_irq_q_1, (int*)&vect_id);
-//
-//    if( vect_id < VRING_ISR_COUNT )
-//    {
-//        vring_isr_info_t    *pInfo = &g_vring_isr[vect_id];
-//
-//        if( pInfo->vring_isr )
-//            pInfo->vring_isr(vect_id, pInfo->data);
-//
-//        trace_leave();
-//    }
+    core_attr_t     *pAttr_cur = &g_core_attr[CORE_ID_MASTER];
+    uint32_t        vect_id = (uint32_t)-1;
+
+    trace_enter();
+    queue_pop(pAttr_cur->pVring_rx_q, (int*)&vect_id);
+
+    if( vect_id < VRING_ISR_COUNT )
+    {
+        platform_rpmsg_handler(vect_id);
+    }
     return;
 }
 
@@ -105,6 +133,8 @@ _cb_master_ept_read(
 {
     int     *pHas_received = priv;
 
+    trace_enter();
+
     if (payload_len <= sizeof(msg_box_t))
     {
         msg_box_t   msg = {0};
@@ -112,7 +142,8 @@ _cb_master_ept_read(
         *pHas_received = 1;
 
         msg.data++;
-    // printf("Primary core received a msg\n\r");
+
+        printf("Primary core received a msg\n\r");
     // printf("Message: Size=%x, DATA = %i\n\r", payload_len, msg.data);
     }
 
@@ -123,9 +154,8 @@ static void*
 _task_core_master(void *argv)
 {
     remote_table_t      *pRPoc_table = (remote_table_t*)argv;
-    core_attr_t         *pAttr = pRPoc_table->pAttr[CORE_ID_MASTER];
+    // core_attr_t         *pAttr = pRPoc_table->pAttr[CORE_ID_MASTER];
 
-    char                                    ch = 0;
     volatile int                            has_received = 0;
     rpmsg_lite_ept_static_context_t         my_ept_context;
     rpmsg_lite_endpoint_t                   *my_ept;
@@ -138,6 +168,8 @@ _task_core_master(void *argv)
     pthread_cond_init(&g_cond_rpmsg_rx, NULL);
     pthread_mutex_init(&g_mtx_rpmsg_rx, NULL);
 
+    platform_init(&g_master_platform_ops);
+
 #if 1
     // boot remote processor
     for(int i = CORE_ID_REMOTE_1; i < CORE_ID_TOTAL; ++i)
@@ -148,7 +180,7 @@ _task_core_master(void *argv)
 
     my_rpmsg = rpmsg_lite_master_init(RPMSG_LITE_SHMEM_BASE,
                                       RPMSG_LITE_SHMEM_SIZE,
-                                      RPMSG_LITE_LINK_ID,
+                                      RPMSG_LITE_CHANNEL_0,
                                       RL_NO_FLAGS,
                                       &rpmsg_ctxt);
 
@@ -158,6 +190,7 @@ _task_core_master(void *argv)
                                    (void *)&has_received,
                                    &my_ept_context);
 
+#if 1
     /* Send the first message to the remoteproc */
     msg.data = 10;
     rpmsg_lite_send(my_rpmsg, my_ept,
@@ -165,9 +198,11 @@ _task_core_master(void *argv)
                     (char *)&msg,
                     sizeof(msg_box_t),
                     RL_DONT_BLOCK);
+#endif // 1
 
     while(1)
     {
+    #if 0
         if( has_received )
         {
             has_received = 0;
@@ -178,6 +213,7 @@ _task_core_master(void *argv)
                             sizeof(msg_box_t),
                             RL_DONT_BLOCK);
         }
+    #endif
 
         Sleep((rand() >> 5)& 0x3);
     }

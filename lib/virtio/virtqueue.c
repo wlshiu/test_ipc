@@ -257,14 +257,14 @@ int virtqueue_create(unsigned short id,
 
         env_strncpy(vq->vq_name, name, VIRTQUEUE_MAX_NAME_SZ);
         vq->vq_queue_index = id;
-        vq->vq_alignment = ring->align;
-        vq->vq_nentries = ring->num_descs;
-        vq->callback = callback;
-        vq->notify = notify;
+        vq->vq_alignment   = ring->align;
+        vq->vq_nentries    = ring->num_descs;
+        vq->callback       = callback;
+        vq->notify         = notify;
 
         // indirect addition  is not supported
         vq->vq_ring_size = vring_size(ring->num_descs, ring->align);
-        vq->vq_ring_mem = (void *)ring->phy_addr;
+        vq->vq_ring_mem  = (void *)ring->phy_addr;
 
         vring_init(&vq->vq_ring, vq->vq_nentries, vq->vq_ring_mem, vq->vq_alignment);
 
@@ -391,8 +391,8 @@ int virtqueue_fill_avail_buffers(struct virtqueue *vq, void *buffer, uint32_t le
         head_idx = vq->vq_desc_head_idx;
 
         dp = &vq->vq_ring.desc[head_idx];
-        dp->addr = env_map_vatopa(buffer);
-        dp->len = len;
+        dp->addr  = env_map_vatopa(buffer);
+        dp->len   = len;
         dp->flags = VRING_DESC_F_WRITE;
 
         vq->vq_desc_head_idx++;
@@ -469,7 +469,7 @@ void virtqueue_free(struct virtqueue *vq)
         if (vq->vq_ring_mem != VQ_NULL)
         {
             vq->vq_ring_size = 0;
-            vq->vq_ring_mem = VQ_NULL;
+            vq->vq_ring_mem  = VQ_NULL;
         }
 
         env_free_memory(vq);
@@ -489,7 +489,7 @@ void virtqueue_free_static(struct virtqueue *vq)
         if (vq->vq_ring_mem != VQ_NULL)
         {
             vq->vq_ring_size = 0;
-            vq->vq_ring_mem = VQ_NULL;
+            vq->vq_ring_mem  = VQ_NULL;
         }
     }
 }
@@ -690,10 +690,9 @@ uint32_t virtqueue_get_desc_size(struct virtqueue *vq)
  */
 void virtqueue_notification(struct virtqueue *vq)
 {
-    if (vq != VQ_NULL)
+    if (vq && vq->callback)
     {
-        if (vq->callback != VQ_NULL)
-            vq->callback(vq);
+        vq->callback(vq);
     }
 }
 

@@ -40,6 +40,17 @@ typedef enum core_id
 //=============================================================================
 //                  Structure Definition
 //=============================================================================
+/* Max supported ISR counts */
+#define VRING_ISR_COUNT                 2
+
+typedef struct vring_isr_info
+{
+    int     vector_id;
+    void    *data;
+    void    (*vring_isr)(int vector_id, void *data);
+
+} vring_isr_info_t;
+
 typedef void (*cb_irs)(void);
 
 typedef struct core_attr
@@ -51,18 +62,12 @@ typedef struct core_attr
 
     queue_handle_t      *pRemote_irq_q;
 
+    queue_handle_t      *pVring_tx_q;
+    queue_handle_t      *pVring_rx_q;
+
 } core_attr_t;
 
-/* Max supported ISR counts */
-#define VRING_ISR_COUNT                 2
 
-typedef struct vring_isr_info
-{
-    int     vector_id;
-    void    *data;
-    void    (*vring_isr)(int vector_id, void *data);
-
-} vring_isr_info_t;
 //=============================================================================
 //                  Global Data Definition
 //=============================================================================

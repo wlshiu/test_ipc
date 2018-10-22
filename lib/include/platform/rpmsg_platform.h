@@ -51,12 +51,21 @@
 /* size of shared memory + 2*VRING size */
 #define RL_VRING_OVERHEAD                   (2 * VRING_SIZE)
 
-#define RL_GET_VQ_ID(core_id, queue_id)     (((queue_id)&0x1) | (((core_id) << 1) & 0xFFFFFFFE))
-#define RL_GET_LINK_ID(id)                  (((id)&0xFFFFFFFE) >> 1)
-#define RL_GET_Q_ID(id)                     ((id)&0x1)
+#define RL_GET_VQ_ID(core_id, queue_id)     (((queue_id) & 0x1) | (((core_id) << 1) & 0xFFFFFFFE))
+#define RL_GET_LINK_ID(id)                  (((id) & 0xFFFFFFFE) >> 1)
+#define RL_GET_Q_ID(id)                     ((id) & 0x1)
 
-#define RL_PLATFORM_LPC5411x_M4_M0_LINK_ID  (0)
-#define RL_PLATFORM_HIGHEST_LINK_ID         (0)
+/* channel id */
+#define RL_PLATFORM_M4_M0_LINK_ID           0
+#define RL_PLATFORM_M3_M0_LINK_ID           1
+#define RL_PLATFORM_HIGHEST_LINK_ID         3 // max link ID
+
+
+typedef struct platform_ops
+{
+    void (*notify)(int vector_id);
+} platform_ops_t;
+
 
 /* platform interrupt related functions */
 int platform_init_interrupt(int vector_id, void *isr_data);
@@ -77,7 +86,9 @@ unsigned long platform_vatopa(void *addr);
 void* platform_patova(unsigned long addr);
 
 /* platform init/deinit */
-int platform_init(void);
+int platform_init(platform_ops_t *pOps);
 int platform_deinit(void);
+
+void platform_rpmsg_handler(int vring_idx);
 
 #endif /* _MACHINE_SYSTEM_H */

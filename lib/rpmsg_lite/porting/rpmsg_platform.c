@@ -39,26 +39,63 @@
 #include "rpmsg_env.h"
 
 
-static void*    lock;
+//==========================================
+//#include "core_info.h"
+#include "irq_queue.h"
+#include "share_info.h"
+
+#define msg(str, argv...)       printf("%s[%d] " str, __func__, __LINE__, ##argv)
+
+static platform_ops_t       *g_pPlatform_ops = 0;
+
+//extern core_attr_t         g_core_attr[CORE_ID_TOTAL];
+
+extern queue_handle_t      g_vring_irq_q_0;
+extern queue_handle_t      g_vring_irq_q_1;
+//==========================================
 
 int platform_init_interrupt(int vq_id, void *isr_data)
 {
+    /* Register ISR to environment layer */
+    env_register_isr(vq_id, isr_data);
     return 0;
 }
 
 int platform_deinit_interrupt(int vq_id)
 {
+    env_unregister_isr(vq_id);
     return 0;
 }
 
+/**
+ *  vq_id[31:1] = channel id
+ *  vq_id[0]    = vring id
+ */
 void platform_notify(int vq_id)
 {
-    /* Trigger IPI (inter-processor interrupt) */
-    env_lock_mutex(lock);
+#if 1
+    if( g_pPlatform_ops && g_pPlatform_ops->notify )
+        g_pPlatform_ops->notify(vq_id);
 
-    // TODO: trigger IRQ
+    return;
+#else
 
-    env_unlock_mutex(lock);
+    core_attr_t     *pAttr_cur = &g_core_attr[];
+    queue_handle_t  *pHQ_act = 0;
+
+    switch( RL_GET_LINK_ID(vq_id) )
+    {
+        case RPMSG_LITE_CHANNEL_0:
+            queue_push(&g_vring_irq_q_0, vq_id);
+            {
+                static int     core_0_event = 0;
+                queue_push(pAttr_cur->pRemote_irq_q, core_0_event++);
+            }
+            break;
+        default:    break;
+    }
+    return;
+#endif // 1
 }
 
 /**
@@ -165,7 +202,7 @@ unsigned long platform_vatopa(void *addr)
  * Dummy implementation
  *
  */
-void* platform_patova(unsigned long addr)
+void *platform_patova(unsigned long addr)
 {
     return ((void *)addr);
 }
@@ -175,11 +212,9 @@ void* platform_patova(unsigned long addr)
  *
  * platform/environment init
  */
-int platform_init(void)
+int platform_init(platform_ops_t *pOps)
 {
-    /* Create lock used in multi-instanced RPMsg */
-    env_create_mutex(&lock, 1);
-
+    g_pPlatform_ops = pOps;
     return 0;
 }
 
@@ -190,8 +225,12 @@ int platform_init(void)
  */
 int platform_deinit(void)
 {
-    /* Delete lock used in multi-instanced RPMsg */
-    env_delete_mutex(lock);
-    lock = NULL;
+    g_pPlatform_ops = 0;
     return 0;
+}
+
+
+void platform_rpmsg_handler(int vring_idx)
+{
+    env_isr(vring_idx);
 }

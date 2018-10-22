@@ -74,6 +74,13 @@ int main()
     core_irq_simulator(&g_core_attr[CORE_ID_MASTER], CORE_ID_TOTAL);
 
     //------------------------------
+    // vring
+    g_core_attr[CORE_ID_MASTER].pVring_tx_q   = &g_vring_irq_q_0;
+    g_core_attr[CORE_ID_MASTER].pVring_rx_q   = &g_vring_irq_q_1;
+    g_core_attr[CORE_ID_REMOTE_1].pVring_tx_q = &g_vring_irq_q_1;
+    g_core_attr[CORE_ID_REMOTE_1].pVring_rx_q = &g_vring_irq_q_0;
+
+    //------------------------------
     // start
     core_master_boot(&g_core_attr[CORE_ID_MASTER], CORE_ID_TOTAL);
 

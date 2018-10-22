@@ -23,9 +23,11 @@ extern "C" {
 //                  Constant Definition
 //=============================================================================
 //=============================================================================
-#define RPMSG_LITE_LINK_ID                  (RL_PLATFORM_LPC5411x_M4_M0_LINK_ID)
-#define LOCAL_EPT_ADDR                      (30)
-#define REMOTE_EPT_ADDR                     (40)
+#define RPMSG_LITE_CHANNEL_0                RL_PLATFORM_M4_M0_LINK_ID
+#define RPMSG_LITE_CHANNEL_1                RL_PLATFORM_M3_M0_LINK_ID
+
+#define EPT_ADDR_0                      (30)
+#define EPT_ADDR_1                      (40)
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
