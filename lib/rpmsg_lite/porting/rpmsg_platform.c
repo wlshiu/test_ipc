@@ -46,7 +46,7 @@
 
 #define msg(str, argv...)       printf("%s[%d] " str, __func__, __LINE__, ##argv)
 
-static platform_ops_t       *g_pPlatform_ops = 0;
+static platform_ops_t       *g_pPlatform_ops[4] = {0};
 
 //extern core_attr_t         g_core_attr[CORE_ID_TOTAL];
 
@@ -73,29 +73,14 @@ int platform_deinit_interrupt(int vq_id)
  */
 void platform_notify(int vq_id)
 {
-#if 1
-    if( g_pPlatform_ops && g_pPlatform_ops->notify )
-        g_pPlatform_ops->notify(vq_id);
+    int             cpu_id = RL_GET_CORE_ID(vq_id);
+    platform_ops_t  *pOps = 0;
+
+    pOps = g_pPlatform_ops[cpu_id];
+    if( pOps && pOps->notify )
+        pOps->notify(vq_id);
 
     return;
-#else
-
-    core_attr_t     *pAttr_cur = &g_core_attr[];
-    queue_handle_t  *pHQ_act = 0;
-
-    switch( RL_GET_LINK_ID(vq_id) )
-    {
-        case RPMSG_LITE_CHANNEL_0:
-            queue_push(&g_vring_irq_q_0, vq_id);
-            {
-                static int     core_0_event = 0;
-                queue_push(pAttr_cur->pRemote_irq_q, core_0_event++);
-            }
-            break;
-        default:    break;
-    }
-    return;
-#endif // 1
 }
 
 /**
@@ -212,9 +197,10 @@ void *platform_patova(unsigned long addr)
  *
  * platform/environment init
  */
-int platform_init(platform_ops_t *pOps)
+int platform_init(int cpu_id, platform_ops_t *pOps)
 {
-    g_pPlatform_ops = pOps;
+    if( cpu_id < 4 )
+        g_pPlatform_ops[cpu_id] = pOps;
     return 0;
 }
 
@@ -223,9 +209,10 @@ int platform_init(platform_ops_t *pOps)
  *
  * platform/environment deinit process
  */
-int platform_deinit(void)
+int platform_deinit(int cpu_id)
 {
-    g_pPlatform_ops = 0;
+    if( cpu_id < 4 )
+        g_pPlatform_ops[cpu_id] = 0;
     return 0;
 }
 

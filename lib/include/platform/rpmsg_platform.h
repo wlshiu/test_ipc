@@ -51,8 +51,14 @@
 /* size of shared memory + 2*VRING size */
 #define RL_VRING_OVERHEAD                   (2 * VRING_SIZE)
 
-#define RL_GET_VQ_ID(core_id, queue_id)     (((queue_id) & 0x1) | (((core_id) << 1) & 0xFFFFFFFE))
-#define RL_GET_LINK_ID(id)                  (((id) & 0xFFFFFFFE) >> 1)
+/**
+ *  [31:16] = core id
+ *  [15: 1] = link id (channel id)
+ *  [0]     = queue id (vring id)
+ */
+#define RL_GET_VQ_ID(muxed_id, queue_id)    (((queue_id) & 0x1) | (((muxed_id) << 1) & 0xFFFFFFFE))
+#define RL_GET_LINK_ID(id)                  (((id) & 0x0000FFFE) >> 1)
+#define RL_GET_CORE_ID(id)                  (((id) & 0xFFFF0000) >> 16)
 #define RL_GET_Q_ID(id)                     ((id) & 0x1)
 
 /* channel id */
@@ -86,8 +92,8 @@ unsigned long platform_vatopa(void *addr);
 void* platform_patova(unsigned long addr);
 
 /* platform init/deinit */
-int platform_init(platform_ops_t *pOps);
-int platform_deinit(void);
+int platform_init(int cpu_id, platform_ops_t *pOps);
+int platform_deinit(int cpu_id);
 
 void platform_rpmsg_handler(int vring_idx);
 

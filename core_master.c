@@ -161,14 +161,13 @@ _task_core_master(void *argv)
     rpmsg_lite_endpoint_t                   *my_ept;
     rpmsg_lite_instance_t                   rpmsg_ctxt;
     rpmsg_lite_instance_t                   *my_rpmsg;
-    msg_box_t                               msg = {0};
 
     pthread_detach(pthread_self());
 
     pthread_cond_init(&g_cond_rpmsg_rx, NULL);
     pthread_mutex_init(&g_mtx_rpmsg_rx, NULL);
 
-    platform_init(&g_master_platform_ops);
+    platform_init(CORE_ID_MASTER, &g_master_platform_ops);
 
 #if 1
     // boot remote processor
@@ -180,7 +179,7 @@ _task_core_master(void *argv)
 
     my_rpmsg = rpmsg_lite_master_init(RPMSG_LITE_SHMEM_BASE,
                                       RPMSG_LITE_SHMEM_SIZE,
-                                      RPMSG_LITE_CHANNEL_0,
+                                      RPMSG_LITE_CHANNEL_0 | CORE_ID_MASTER,
                                       RL_NO_FLAGS,
                                       &rpmsg_ctxt);
 
@@ -192,7 +191,7 @@ _task_core_master(void *argv)
 
 #if 1
     /* Send the first message to the remoteproc */
-    msg.data = 10;
+    msg_box_t   msg = {.data = 10,};
     rpmsg_lite_send(my_rpmsg, my_ept,
                     REMOTE_EPT_ADDR,
                     (char *)&msg,

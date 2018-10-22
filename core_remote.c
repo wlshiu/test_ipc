@@ -162,7 +162,7 @@ _task_core_remote(void *argv)
     pthread_cond_init(&g_cond_rpmsg_rx, NULL);
     pthread_mutex_init(&g_mtx_rpmsg_rx, NULL);
 
-    platform_init(&g_remote_platform_ops);
+    platform_init(CORE_ID_REMOTE_1, &g_remote_platform_ops);
 
     my_rpmsg = rpmsg_lite_remote_init((void *)RPMSG_LITE_SHMEM_BASE,
                                       RPMSG_LITE_CHANNEL_0,

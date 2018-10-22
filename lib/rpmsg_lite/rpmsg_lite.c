@@ -926,7 +926,7 @@ rpmsg_lite_master_init(
     struct rpmsg_lite_instance  *rpmsg_lite_dev = NULL;
 
     if( (2 * RL_BUFFER_COUNT) > ((RL_WORD_ALIGN_DOWN(shmem_length - RL_VRING_OVERHEAD)) / RL_BUFFER_SIZE) ||
-        link_id > RL_PLATFORM_HIGHEST_LINK_ID ||
+        RL_GET_LINK_ID(link_id) > RL_PLATFORM_HIGHEST_LINK_ID ||
         !shmem_addr )
     {
         return NULL;
@@ -1115,7 +1115,7 @@ rpmsg_lite_remote_init(
     int                         idx;
     struct rpmsg_lite_instance  *rpmsg_lite_dev = NULL;
 
-    if (link_id > RL_PLATFORM_HIGHEST_LINK_ID || !shmem_addr)
+    if (RL_GET_LINK_ID(link_id) > RL_PLATFORM_HIGHEST_LINK_ID || !shmem_addr)
     {
         return NULL;
     }
