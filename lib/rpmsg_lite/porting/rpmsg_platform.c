@@ -44,8 +44,6 @@
 #include "irq_queue.h"
 #include "share_info.h"
 
-#define msg(str, argv...)       printf("%s[%d] " str, __func__, __LINE__, ##argv)
-
 static platform_ops_t       *g_pPlatform_ops[4] = {0};
 
 //extern core_attr_t         g_core_attr[CORE_ID_TOTAL];
@@ -73,10 +71,10 @@ int platform_deinit_interrupt(int vq_id)
  */
 void platform_notify(int vq_id)
 {
-    int             cpu_id = RL_GET_CORE_ID(vq_id);
+    int             core_id = RL_GET_CORE_ID(vq_id);
     platform_ops_t  *pOps = 0;
 
-    pOps = g_pPlatform_ops[cpu_id];
+    pOps = g_pPlatform_ops[core_id];
     if( pOps && pOps->notify )
         pOps->notify(vq_id);
 

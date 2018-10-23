@@ -25,7 +25,7 @@
 //                  Constant Definition
 //=============================================================================
 /* Max supported ISR counts */
-#define ISR_COUNT           (12)
+#define ISR_COUNT           RL_MAX_VRING_ISR_NUM(2)
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
@@ -34,8 +34,8 @@
 //                  Structure Definition
 //=============================================================================
 /*!
-* Structure to keep track of registered ISR's.
-*/
+ *  record private info to keep track of registered ISR's.
+ */
 typedef struct isr_info
 {
     void *data;
@@ -368,9 +368,12 @@ void env_restore_interrupts()
  */
 void env_register_isr(int vector_id, void *data)
 {
-    if( vector_id < ISR_COUNT )
+    int     idx = RL_MAP_TO_VRING_ISR(vector_id);
+
+//    msg("x%x, idx = %d\n", vector_id, idx);
+    if( idx < ISR_COUNT )
     {
-        g_isr_table[vector_id].data = data;
+        g_isr_table[idx].data = data;
     }
     return;
 }
@@ -385,9 +388,12 @@ void env_register_isr(int vector_id, void *data)
  */
 void env_unregister_isr(int vector_id)
 {
-    if( vector_id < ISR_COUNT )
+    int     idx = RL_MAP_TO_VRING_ISR(vector_id);
+
+//    msg("x%x, idx = %d\n", vector_id, idx);
+    if( idx < ISR_COUNT )
     {
-        g_isr_table[vector_id].data = NULL;
+        g_isr_table[idx].data = NULL;
     }
     return;
 }
@@ -556,11 +562,14 @@ int env_get_current_queue_size(void *queue)
 
 void env_isr(int vector_id)
 {
-    struct isr_info     *pInfo;
+    int         idx = RL_MAP_TO_VRING_ISR(vector_id);
+    isr_info_t  *pInfo;
 
-    if( vector_id < ISR_COUNT )
+//    msg("x%x, idx = %d\n", vector_id, idx);
+
+    if( idx < ISR_COUNT )
     {
-        pInfo = &g_isr_table[vector_id];
+        pInfo = &g_isr_table[idx];
         virtqueue_notification((struct virtqueue *)pInfo->data);
     }
     return;

@@ -162,6 +162,7 @@ struct rpmsg_lite_instance*
 rpmsg_lite_master_init(
     void        *shmem_addr,
     size_t      shmem_length,
+    int         core_id,
     int         link_id,
     uint32_t    init_flags,
     struct rpmsg_lite_instance  *static_context);
@@ -170,6 +171,7 @@ struct rpmsg_lite_instance*
 rpmsg_lite_master_init(
     void        *shmem_addr,
     size_t      shmem_length,
+    int         core_id,
     int         link_id,
     uint32_t    init_flags);
 #endif
@@ -190,6 +192,7 @@ rpmsg_lite_master_init(
 struct rpmsg_lite_instance*
 rpmsg_lite_remote_init(
     void        *shmem_addr,
+    int         core_id,
     int         link_id,
     uint32_t    init_flags,
     struct rpmsg_lite_instance  *static_context);
@@ -197,6 +200,7 @@ rpmsg_lite_remote_init(
 struct rpmsg_lite_instance*
 rpmsg_lite_remote_init(
     void        *shmem_addr,
+    int         core_id,
     int         link_id,
     uint32_t    init_flags);
 #endif

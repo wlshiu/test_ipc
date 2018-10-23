@@ -121,6 +121,8 @@ rpmsg_lite_get_endpoint_from_addr(
     while (rl_ept_lut_head)
     {
         struct rpmsg_lite_endpoint  *rl_ept = (struct rpmsg_lite_endpoint *)rl_ept_lut_head->data;
+
+//        printf("@@@ addr %lu, %lu\n", rl_ept->addr, addr);
         if (rl_ept->addr == addr)
         {
             return rl_ept_lut_head;
@@ -165,6 +167,9 @@ rpmsg_lite_rx_callback(
 
     /* Process the received data from remote node */
     rpmsg_msg = (struct rpmsg_std_msg *)rpmsg_lite_dev->vq_ops->vq_rx(rpmsg_lite_dev->rvq, &len, &idx);
+
+    if( rpmsg_msg )
+        printf("rx: src= %ld, dst= %ld\n", rpmsg_msg->hdr.src, rpmsg_msg->hdr.dst);
 
     while (rpmsg_msg)
     {
@@ -687,6 +692,10 @@ rpmsg_lite_format_message(
     rpmsg_msg = (struct rpmsg_std_msg *)buffer;
 
     /* Initialize RPMSG header. */
+    printf("fmt rpmsg hdr: src= %d, dst= %d\n", src, dst);
+    if( dst == 0 )
+        printf("\n");
+
     rpmsg_msg->hdr.dst   = dst;
     rpmsg_msg->hdr.src   = src;
     rpmsg_msg->hdr.len   = size;
@@ -904,6 +913,7 @@ struct rpmsg_lite_instance*
 rpmsg_lite_master_init(
     void        *shmem_addr,
     size_t      shmem_length,
+    int         core_id,
     int         link_id,
     uint32_t    init_flags,
     struct rpmsg_lite_instance  *static_context)
@@ -912,6 +922,7 @@ struct rpmsg_lite_instance*
 rpmsg_lite_master_init(
     void        *shmem_addr,
     size_t      shmem_length,
+    int         core_id,
     int         link_id,
     uint32_t    init_flags)
 #endif
@@ -926,7 +937,7 @@ rpmsg_lite_master_init(
     struct rpmsg_lite_instance  *rpmsg_lite_dev = NULL;
 
     if( (2 * RL_BUFFER_COUNT) > ((RL_WORD_ALIGN_DOWN(shmem_length - RL_VRING_OVERHEAD)) / RL_BUFFER_SIZE) ||
-        RL_GET_LINK_ID(link_id) > RL_PLATFORM_HIGHEST_LINK_ID ||
+        link_id > RL_PLATFORM_HIGHEST_LINK_ID ||
         !shmem_addr )
     {
         return NULL;
@@ -983,7 +994,7 @@ rpmsg_lite_master_init(
         env_memset((void *)ring_info.phy_addr, 0x00, vring_size(ring_info.num_descs, ring_info.align));
 
     #if defined(RL_USE_STATIC_API) && (RL_USE_STATIC_API == 1)
-        status = virtqueue_create_static(RL_GET_VQ_ID(link_id, idx),
+        status = virtqueue_create_static(RL_GET_VQ_ID(core_id, link_id, idx),
                                          (char *)vq_names[idx],
                                          &ring_info,
                                          callback[idx],
@@ -991,7 +1002,7 @@ rpmsg_lite_master_init(
                                          &vqs[idx],
                                          (struct vq_static_context *)&rpmsg_lite_dev->vq_ctxt[idx]);
     #else
-        status = virtqueue_create(RL_GET_VQ_ID(link_id, idx),
+        status = virtqueue_create(RL_GET_VQ_ID(core_id, link_id, idx),
                                   (char *)vq_names[idx],
                                   &ring_info,
                                   callback[idx],
@@ -1096,6 +1107,7 @@ rpmsg_lite_master_init(
 struct rpmsg_lite_instance*
 rpmsg_lite_remote_init(
     void        *shmem_addr,
+    int         core_id,
     int         link_id,
     uint32_t    init_flags,
     struct rpmsg_lite_instance  *static_context)
@@ -1103,6 +1115,7 @@ rpmsg_lite_remote_init(
 struct rpmsg_lite_instance*
 rpmsg_lite_remote_init(
     void        *shmem_addr,
+    int         core_id,
     int         link_id,
     uint32_t    init_flags)
 #endif
@@ -1115,7 +1128,7 @@ rpmsg_lite_remote_init(
     int                         idx;
     struct rpmsg_lite_instance  *rpmsg_lite_dev = NULL;
 
-    if (RL_GET_LINK_ID(link_id) > RL_PLATFORM_HIGHEST_LINK_ID || !shmem_addr)
+    if (link_id > RL_PLATFORM_HIGHEST_LINK_ID || !shmem_addr)
     {
         return NULL;
     }
@@ -1159,7 +1172,7 @@ rpmsg_lite_remote_init(
         ring_info.num_descs = RL_BUFFER_COUNT;
 
     #if defined(RL_USE_STATIC_API) && (RL_USE_STATIC_API == 1)
-        status = virtqueue_create_static(RL_GET_VQ_ID(link_id, idx),
+        status = virtqueue_create_static(RL_GET_VQ_ID(core_id, link_id, idx),
                                          (char *)vq_names[idx],
                                          &ring_info,
                                          callback[idx],
@@ -1167,7 +1180,7 @@ rpmsg_lite_remote_init(
                                          &vqs[idx],
                                          (struct vq_static_context *)&rpmsg_lite_dev->vq_ctxt[idx]);
     #else
-        status = virtqueue_create(RL_GET_VQ_ID(link_id, idx),
+        status = virtqueue_create(RL_GET_VQ_ID(core_id, link_id, idx),
                                   (char *)vq_names[idx],
                                   &ring_info,
                                   callback[idx],

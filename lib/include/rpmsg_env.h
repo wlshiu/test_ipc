@@ -144,6 +144,8 @@ void env_strncpy(char *dest, const char *src, unsigned long len);
 int env_strncmp(char *dest, const char *src, unsigned long len);
 #define env_print(...) printf(__VA_ARGS__)
 
+#define msg(str, argv...)       printf("%s[%d] " str, __func__, __LINE__, ##argv)
+
 /*!
  *-----------------------------------------------------------------------------
  *

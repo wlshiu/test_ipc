@@ -17,6 +17,7 @@
 #include "irq_queue.h"
 
 #include "rpmsg_lite.h"
+#include "rpmsg_ns.h"
 #include "platform/rpmsg_platform.h"
 
 #include "share_info.h"
@@ -25,10 +26,12 @@
 //=============================================================================
 #define LOCAL_EPT_ADDR                      EPT_ADDR_0
 #define REMOTE_EPT_ADDR                     EPT_ADDR_1
+
+#define RPMSG_LITE_NS_ANNOUNCE_STRING       "hollow"
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
-#if 1
+#if 0
 #define trace_enter()                do{ extern pthread_mutex_t   g_log_mtx; \
                                         pthread_mutex_lock(&g_log_mtx); \
                                         printf("%s[%d][remote] enter\n", __func__, __LINE__); \
@@ -45,7 +48,9 @@
     #define trace_leave()
 #endif
 
-
+#ifdef msg
+#undef msg
+#endif // msg
 #define msg(str, argv...)           do{ extern pthread_mutex_t   g_log_mtx; \
                                         pthread_mutex_lock(&g_log_mtx); \
                                         printf("%s[%d][remote] "str, __func__, __LINE__, ##argv); \
@@ -81,6 +86,7 @@ _remote_trigger_irq(
 static void
 _remote_notify(int vector_id)
 {
+    static int      cnt = 0ul;
     core_attr_t     *pAttr_cur = &g_core_attr[CORE_ID_REMOTE_1];
 
     trace_enter();
@@ -88,6 +94,9 @@ _remote_notify(int vector_id)
     switch( RL_GET_LINK_ID(vector_id) )
     {
         case RPMSG_LITE_CHANNEL_0:
+            vector_id &= (RL_MSK_LINK_ID | RL_MSK_Q_ID);
+
+            msg("\tsend %d-th: x%x\n", ++cnt, vector_id);
             queue_push(pAttr_cur->pVring_tx_q, vector_id);
 
             _remote_trigger_irq(pAttr_cur);
@@ -103,21 +112,32 @@ static platform_ops_t   g_remote_platform_ops =
     .notify = _remote_notify,
 };
 //--------------------------------------
-
+static int  g_irq_remote_cnt = 0;
 static void
 _isr_core_remote(void)
 {
+    int             rval = 0;
     core_attr_t     *pAttr_cur = &g_core_attr[CORE_ID_REMOTE_1];
     uint32_t        vect_id = (uint32_t)-1;
 
+    g_irq_remote_cnt++;
     trace_enter();
+#if 1
+    if( (rval = queue_pop(pAttr_cur->pVring_rx_q, (int*)&vect_id)) )
+        return;
+#else
+    while( (rval = queue_pop(pAttr_cur->pVring_rx_q, (int*)&vect_id)) != -1 )
+#endif // 1
 
-    queue_pop(pAttr_cur->pVring_rx_q, (int*)&vect_id);
-
-    if( vect_id < VRING_ISR_COUNT )
     {
-        platform_rpmsg_handler(vect_id);
+        printf("rmt irq cnt = %d\n", g_irq_remote_cnt);
+        if( RL_GET_Q_ID(vect_id) < VRING_ISR_COUNT )
+        {
+            vect_id |= (CORE_ID_REMOTE_1 << RL_SHIFT_CORE_ID);
+            platform_rpmsg_handler(vect_id);
+        }
     }
+
     return;
 }
 
@@ -132,7 +152,7 @@ _cb_remote_ept_read(
 
     trace_enter();
 
-    if (payload_len <= sizeof(msg_box_t))
+    if( payload_len <= sizeof(msg_box_t) )
     {
         msg_box_t   msg = {0};
 
@@ -140,8 +160,7 @@ _cb_remote_ept_read(
         g_remote_addr = src;
         *pHas_received = 1;
 
-        printf("The m0+ core received msg from m4 core\r\n");
-        // printf("Message: Size=%x, DATA = %i\n\r", payload_len, msg.DATA);
+        printf("[Remote recv] Message: Size=x%x, DATA = %d\n", payload_len, msg.data);
     }
     return RL_RELEASE;
 }
@@ -165,6 +184,7 @@ _task_core_remote(void *argv)
     platform_init(CORE_ID_REMOTE_1, &g_remote_platform_ops);
 
     my_rpmsg = rpmsg_lite_remote_init((void *)RPMSG_LITE_SHMEM_BASE,
+                                      CORE_ID_REMOTE_1,
                                       RPMSG_LITE_CHANNEL_0,
                                       RL_NO_FLAGS,
                                       &rpmsg_ctxt);
@@ -184,24 +204,27 @@ _task_core_remote(void *argv)
     rpmsg_ns_announce(my_rpmsg, my_ept, RPMSG_LITE_NS_ANNOUNCE_STRING, RL_NS_CREATE);
 #endif /*RPMSG_LITE_NS_USED*/
 
+    msg("created ept addr = %d\n", LOCAL_EPT_ADDR);
+
     while(1)
     {
-    #if 0
-        char            ch = 0;
+    #if 1
+        static int      cnt = 5;
         msg_box_t       msg = {0};
-        // ch = GETCHAR(); // get date from callback
-        msg.data = ch - 49;
 
-        if( msg.data )
+        msg.data = cnt;
+
+        if( g_remote_addr && msg.data )
         {
             has_received = 0;
 
-            // msg.DATA++;
             rpmsg_lite_send(my_rpmsg, my_ept,
                             g_remote_addr,
                             (char *)&msg,
                             sizeof(msg_box_t),
                             RL_DONT_BLOCK);
+
+             cnt--;
         }
     #endif // 0
 
@@ -223,6 +246,7 @@ int
 core_remote_init(
     core_attr_t     *pAttr_core)
 {
+    g_remote_addr = 0;
     pAttr_core->pf_irs = _isr_core_remote;
     return 0;
 }

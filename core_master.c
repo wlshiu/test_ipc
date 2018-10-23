@@ -29,7 +29,7 @@
 //=============================================================================
 //                  Macro Definition
 //=============================================================================
-#if 1
+#if 0
 #define trace_enter()                do{ extern pthread_mutex_t   g_log_mtx; \
                                         pthread_mutex_lock(&g_log_mtx); \
                                         printf("%s[%d][master] enter\n", __func__, __LINE__); \
@@ -46,7 +46,9 @@
     #define trace_leave()
 #endif
 
-
+#ifdef msg
+#undef msg
+#endif // msg
 #define msg(str, argv...)           do{ extern pthread_mutex_t   g_log_mtx; \
                                         pthread_mutex_lock(&g_log_mtx); \
                                         printf("%s[%d][master] "str, __func__, __LINE__, ##argv); \
@@ -85,6 +87,7 @@ _master_trigger_irq(
 static void
 _master_notify(int vector_id)
 {
+    static int      cnt = 0ul;
     core_attr_t     *pAttr_cur = &g_core_attr[CORE_ID_MASTER];
 
     trace_enter();
@@ -92,6 +95,9 @@ _master_notify(int vector_id)
     switch( RL_GET_LINK_ID(vector_id) )
     {
         case RPMSG_LITE_CHANNEL_0:
+            vector_id &= (RL_MSK_LINK_ID | RL_MSK_Q_ID);
+
+            msg("\tsend %d-th: x%x\n", ++cnt, vector_id);
             queue_push(pAttr_cur->pVring_tx_q, vector_id);
 
             _master_trigger_irq(pAttr_cur);
@@ -107,20 +113,32 @@ static platform_ops_t   g_master_platform_ops =
     .notify = _master_notify,
 };
 //--------------------------------------
-
+static int  g_irq_master_cnt = 0;
 static void
 _isr_core_master(void)
 {
+    int             rval = 0;
     core_attr_t     *pAttr_cur = &g_core_attr[CORE_ID_MASTER];
     uint32_t        vect_id = (uint32_t)-1;
 
+    g_irq_master_cnt++;
     trace_enter();
-    queue_pop(pAttr_cur->pVring_rx_q, (int*)&vect_id);
 
-    if( vect_id < VRING_ISR_COUNT )
+#if 1
+    if( (rval = queue_pop(pAttr_cur->pVring_rx_q, (int*)&vect_id)) )
+        return;
+#else
+    while( (rval = queue_pop(pAttr_cur->pVring_rx_q, (int*)&vect_id)) != -1 )
+#endif
     {
-        platform_rpmsg_handler(vect_id);
+        printf("mst irq cnt = %d\n", g_irq_master_cnt);
+        if( RL_GET_Q_ID(vect_id) < VRING_ISR_COUNT )
+        {
+            vect_id |= (CORE_ID_MASTER << RL_SHIFT_CORE_ID);
+            platform_rpmsg_handler(vect_id);
+        }
     }
+
     return;
 }
 
@@ -135,16 +153,15 @@ _cb_master_ept_read(
 
     trace_enter();
 
-    if (payload_len <= sizeof(msg_box_t))
+    if( payload_len <= sizeof(msg_box_t) )
     {
-        msg_box_t   msg = {0};
+        msg_box_t       msg = {0};
+
         memcpy((void *)&msg, payload, payload_len);
+
+        printf("[Master recv] Message: Size=x%x, DATA = %d\n", payload_len, msg.data);
+
         *pHas_received = 1;
-
-        msg.data++;
-
-        printf("Primary core received a msg\n\r");
-    // printf("Message: Size=%x, DATA = %i\n\r", payload_len, msg.data);
     }
 
     return RL_RELEASE;
@@ -179,7 +196,8 @@ _task_core_master(void *argv)
 
     my_rpmsg = rpmsg_lite_master_init(RPMSG_LITE_SHMEM_BASE,
                                       RPMSG_LITE_SHMEM_SIZE,
-                                      RPMSG_LITE_CHANNEL_0 | CORE_ID_MASTER,
+                                      CORE_ID_MASTER,
+                                      RPMSG_LITE_CHANNEL_0,
                                       RL_NO_FLAGS,
                                       &rpmsg_ctxt);
 
@@ -189,6 +207,13 @@ _task_core_master(void *argv)
                                    (void *)&has_received,
                                    &my_ept_context);
 
+    msg("created ept addr = %d\n", LOCAL_EPT_ADDR);
+
+    while( !has_received )
+    {
+        Sleep(1); // wait
+    }
+
 #if 1
     /* Send the first message to the remoteproc */
     msg_box_t   msg = {.data = 10,};
@@ -197,6 +222,7 @@ _task_core_master(void *argv)
                     (char *)&msg,
                     sizeof(msg_box_t),
                     RL_DONT_BLOCK);
+    msg("sent (to addr=%d) msg\n", REMOTE_EPT_ADDR);
 #endif // 1
 
     while(1)

@@ -52,20 +52,33 @@
 #define RL_VRING_OVERHEAD                   (2 * VRING_SIZE)
 
 /**
- *  [31:16] = core id
- *  [15: 1] = link id (channel id)
+ *  [15:12] = core id
+ *  [11: 1] = link id (channel id)
  *  [0]     = queue id (vring id)
  */
-#define RL_GET_VQ_ID(muxed_id, queue_id)    (((queue_id) & 0x1) | (((muxed_id) << 1) & 0xFFFFFFFE))
-#define RL_GET_LINK_ID(id)                  (((id) & 0x0000FFFE) >> 1)
-#define RL_GET_CORE_ID(id)                  (((id) & 0xFFFF0000) >> 16)
+#define RL_SHIFT_Q_ID                       0
+#define RL_SHIFT_LINK_ID                    1
+#define RL_SHIFT_CORE_ID                    12
+#define RL_MSK_Q_ID                         0x1
+#define RL_MSK_LINK_ID                      0x0FFE
+#define RL_MSK_CORE_ID                      0xF000
+
+#define RL_GET_LINK_ID(id)                  (((id) & RL_MSK_LINK_ID) >> RL_SHIFT_LINK_ID)
+#define RL_GET_CORE_ID(id)                  (((id) & RL_MSK_CORE_ID) >> RL_SHIFT_CORE_ID)
 #define RL_GET_Q_ID(id)                     ((id) & 0x1)
+
+#define RL_GET_VQ_ID(core_id, link_id, queue_id)    (((queue_id) & 0x1) | \
+                                                     (((link_id) << 1) & RL_MSK_LINK_ID) | \
+                                                     (((core_id) << RL_SHIFT_CORE_ID) & RL_MSK_CORE_ID))
 
 /* channel id */
 #define RL_PLATFORM_M4_M0_LINK_ID           0
 #define RL_PLATFORM_M3_M0_LINK_ID           1
-#define RL_PLATFORM_HIGHEST_LINK_ID         3 // max link ID
+#define RL_PLATFORM_HIGHEST_LINK_ID         2 // max link ID
 
+#define RL_MAX_VRING_ISR_NUM(core_num)      (RL_PLATFORM_HIGHEST_LINK_ID * 2 * (core_num))
+#define RL_MAP_TO_VRING_ISR(vect_id)        (RL_GET_CORE_ID(vect_id) * RL_PLATFORM_HIGHEST_LINK_ID + \
+                                                (RL_GET_LINK_ID(vect_id)) * 2 + RL_GET_Q_ID(vect_id))
 
 typedef struct platform_ops
 {
