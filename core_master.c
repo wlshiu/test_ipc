@@ -18,7 +18,7 @@
 #include "irq_queue.h"
 
 #include "rpmsg_lite.h"
-#include "platform/rpmsg_platform.h"
+#include "rpmsg_platform.h"
 
 #include "share_info.h"
 //=============================================================================
@@ -71,6 +71,8 @@ static remote_table_t           g_remote_table = {0};
 static pthread_cond_t           g_cond_rpmsg_rx;
 static pthread_mutex_t          g_mtx_rpmsg_rx;
 
+static msg_box_t                g_msgbox = {0};
+
 extern core_attr_t         g_core_attr[CORE_ID_TOTAL];
 //=============================================================================
 //                  Private Function Definition
@@ -87,7 +89,6 @@ _master_trigger_irq(
 static void
 _master_notify(int vector_id)
 {
-    static int      cnt = 0ul;
     core_attr_t     *pAttr_cur = &g_core_attr[CORE_ID_MASTER];
 
     trace_enter();
@@ -97,7 +98,6 @@ _master_notify(int vector_id)
         case RPMSG_LITE_CHANNEL_0:
             vector_id &= (RL_MSK_LINK_ID | RL_MSK_Q_ID);
 
-            msg("\tsend %d-th: x%x\n", ++cnt, vector_id);
             queue_push(pAttr_cur->pVring_tx_q, vector_id);
 
             _master_trigger_irq(pAttr_cur);
@@ -128,13 +128,13 @@ _isr_core_master(void)
     if( (rval = queue_pop(pAttr_cur->pVring_rx_q, (int*)&vect_id)) )
         return;
 #else
-    while( (rval = queue_pop(pAttr_cur->pVring_rx_q, (int*)&vect_id)) != -1 )
+    while( !(rval = queue_pop(pAttr_cur->pVring_rx_q, (int*)&vect_id)) )
 #endif
     {
-        printf("mst irq cnt = %d\n", g_irq_master_cnt);
+        vect_id |= (CORE_ID_MASTER << RL_SHFT_CORE_ID);
+
         if( RL_GET_Q_ID(vect_id) < VRING_ISR_COUNT )
         {
-            vect_id |= (CORE_ID_MASTER << RL_SHIFT_CORE_ID);
             platform_rpmsg_handler(vect_id);
         }
     }
@@ -155,13 +155,15 @@ _cb_master_ept_read(
 
     if( payload_len <= sizeof(msg_box_t) )
     {
-        msg_box_t       msg = {0};
+//        msg_box_t       msgbox = {0};
 
-        memcpy((void *)&msg, payload, payload_len);
+        memcpy((void *)&g_msgbox, payload, payload_len);
 
-        printf("[Master recv] Message: Size=x%x, DATA = %d\n", payload_len, msg.data);
+        printf("[Master recv] Msg: ------------DATA = %d\n", g_msgbox.data++);
 
+        pthread_mutex_lock(&g_mtx_rpmsg_rx);
         *pHas_received = 1;
+        pthread_mutex_unlock(&g_mtx_rpmsg_rx);
     }
 
     return RL_RELEASE;
@@ -171,13 +173,12 @@ static void*
 _task_core_master(void *argv)
 {
     remote_table_t      *pRPoc_table = (remote_table_t*)argv;
-    // core_attr_t         *pAttr = pRPoc_table->pAttr[CORE_ID_MASTER];
 
     volatile int                            has_received = 0;
-    rpmsg_lite_ept_static_context_t         my_ept_context;
-    rpmsg_lite_endpoint_t                   *my_ept;
-    rpmsg_lite_instance_t                   rpmsg_ctxt;
-    rpmsg_lite_instance_t                   *my_rpmsg;
+    struct rpmsg_lite_ept_static_context    my_ept_context;
+    struct rpmsg_lite_endpoint              *my_ept;
+    struct rpmsg_lite_instance              rpmsg_ctxt;
+    struct rpmsg_lite_instance              *my_rpmsg;
 
     pthread_detach(pthread_self());
 
@@ -192,6 +193,8 @@ _task_core_master(void *argv)
     {
         core_remote_boot(pRPoc_table->pAttr[i]);
     }
+
+    Sleep(2); // wait remote rpmsg-dev is initialized
 #endif // 0
 
     my_rpmsg = rpmsg_lite_master_init(RPMSG_LITE_SHMEM_BASE,
@@ -200,6 +203,7 @@ _task_core_master(void *argv)
                                       RPMSG_LITE_CHANNEL_0,
                                       RL_NO_FLAGS,
                                       &rpmsg_ctxt);
+    msg("%s", "master init done\n");
 
     my_ept = rpmsg_lite_create_ept(my_rpmsg,
                                    LOCAL_EPT_ADDR,
@@ -207,36 +211,42 @@ _task_core_master(void *argv)
                                    (void *)&has_received,
                                    &my_ept_context);
 
-    msg("created ept addr = %d\n", LOCAL_EPT_ADDR);
+    msg("created ept addr = %d done\n", LOCAL_EPT_ADDR);
 
+#if 1
+    // wait remote endpoint is created
+#else
     while( !has_received )
-    {
         Sleep(1); // wait
-    }
+
+#endif // 1
 
 #if 1
     /* Send the first message to the remoteproc */
-    msg_box_t   msg = {.data = 10,};
+    g_msgbox.data = 1;
     rpmsg_lite_send(my_rpmsg, my_ept,
                     REMOTE_EPT_ADDR,
-                    (char *)&msg,
+                    (char *)&g_msgbox,
                     sizeof(msg_box_t),
                     RL_DONT_BLOCK);
-    msg("sent (to addr=%d) msg\n", REMOTE_EPT_ADDR);
+    msg("sent (to addr=%d) msg done\n", REMOTE_EPT_ADDR);
 #endif // 1
 
     while(1)
     {
-    #if 0
+    #if 1
         if( has_received )
         {
+            pthread_mutex_lock(&g_mtx_rpmsg_rx);
             has_received = 0;
-            msg.data++;
+            pthread_mutex_unlock(&g_mtx_rpmsg_rx);
+
             rpmsg_lite_send(my_rpmsg, my_ept,
                             REMOTE_EPT_ADDR,
-                            (char *)&msg,
+                            (char *)&g_msgbox,
                             sizeof(msg_box_t),
                             RL_DONT_BLOCK);
+            msg("sent (to addr=%d) msg done\n", REMOTE_EPT_ADDR);
         }
     #endif
 

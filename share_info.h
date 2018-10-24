@@ -18,7 +18,7 @@ extern "C" {
 #endif
 
 #include <stdint.h>
-#include "platform/rpmsg_platform.h"
+#include "rpmsg_platform.h"
 //=============================================================================
 //                  Constant Definition
 //=============================================================================

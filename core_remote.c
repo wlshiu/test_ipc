@@ -18,7 +18,7 @@
 
 #include "rpmsg_lite.h"
 #include "rpmsg_ns.h"
-#include "platform/rpmsg_platform.h"
+#include "rpmsg_platform.h"
 
 #include "share_info.h"
 //=============================================================================
@@ -67,6 +67,7 @@
 static pthread_cond_t           g_cond_rpmsg_rx;
 static pthread_mutex_t          g_mtx_rpmsg_rx;
 
+static msg_box_t                g_msgbox = {0};
 
 static unsigned long            g_remote_addr = 0lu;
 
@@ -86,7 +87,6 @@ _remote_trigger_irq(
 static void
 _remote_notify(int vector_id)
 {
-    static int      cnt = 0ul;
     core_attr_t     *pAttr_cur = &g_core_attr[CORE_ID_REMOTE_1];
 
     trace_enter();
@@ -96,7 +96,6 @@ _remote_notify(int vector_id)
         case RPMSG_LITE_CHANNEL_0:
             vector_id &= (RL_MSK_LINK_ID | RL_MSK_Q_ID);
 
-            msg("\tsend %d-th: x%x\n", ++cnt, vector_id);
             queue_push(pAttr_cur->pVring_tx_q, vector_id);
 
             _remote_trigger_irq(pAttr_cur);
@@ -122,18 +121,19 @@ _isr_core_remote(void)
 
     g_irq_remote_cnt++;
     trace_enter();
+
 #if 1
     if( (rval = queue_pop(pAttr_cur->pVring_rx_q, (int*)&vect_id)) )
         return;
 #else
-    while( (rval = queue_pop(pAttr_cur->pVring_rx_q, (int*)&vect_id)) != -1 )
+    while( !(rval = queue_pop(pAttr_cur->pVring_rx_q, (int*)&vect_id)) )
 #endif // 1
 
     {
-        printf("rmt irq cnt = %d\n", g_irq_remote_cnt);
+        vect_id |= (CORE_ID_REMOTE_1 << RL_SHFT_CORE_ID);
+
         if( RL_GET_Q_ID(vect_id) < VRING_ISR_COUNT )
         {
-            vect_id |= (CORE_ID_REMOTE_1 << RL_SHIFT_CORE_ID);
             platform_rpmsg_handler(vect_id);
         }
     }
@@ -154,13 +154,16 @@ _cb_remote_ept_read(
 
     if( payload_len <= sizeof(msg_box_t) )
     {
-        msg_box_t   msg = {0};
+//        msg_box_t   msgbox = {0};
 
-        memcpy((void *)&msg, payload, payload_len);
+        memcpy((void *)&g_msgbox, payload, payload_len);
         g_remote_addr = src;
-        *pHas_received = 1;
 
-        printf("[Remote recv] Message: Size=x%x, DATA = %d\n", payload_len, msg.data);
+        printf("[Remote recv] Msg: ------------DATA = %d\n", g_msgbox.data++);
+
+        pthread_mutex_lock(&g_mtx_rpmsg_rx);
+        *pHas_received = 1;
+        pthread_mutex_unlock(&g_mtx_rpmsg_rx);
     }
     return RL_RELEASE;
 }
@@ -168,13 +171,11 @@ _cb_remote_ept_read(
 static void*
 _task_core_remote(void *argv)
 {
-    // core_attr_t         *pAttr_core = (core_attr_t*)argv;
-
     volatile int                           has_received = 0;
-    rpmsg_lite_ept_static_context_t        my_ept_context;
-    rpmsg_lite_endpoint_t                  *my_ept;
-    rpmsg_lite_instance_t                  rpmsg_ctxt;
-    rpmsg_lite_instance_t                  *my_rpmsg;
+    struct rpmsg_lite_ept_static_context   my_ept_context;
+    struct rpmsg_lite_endpoint             *my_ept;
+    struct rpmsg_lite_instance             rpmsg_ctxt;
+    struct rpmsg_lite_instance             *my_rpmsg;
 
     pthread_detach(pthread_self());
 
@@ -189,10 +190,15 @@ _task_core_remote(void *argv)
                                       RL_NO_FLAGS,
                                       &rpmsg_ctxt);
 
+    msg("%s", "remote init done\n");
     while (!rpmsg_lite_is_link_up(my_rpmsg))
     {
         Sleep(1); // wait
     }
+
+    pthread_mutex_lock(&g_mtx_rpmsg_rx);
+    has_received = 0;
+    pthread_mutex_unlock(&g_mtx_rpmsg_rx);
 
     my_ept = rpmsg_lite_create_ept(my_rpmsg,
                                    LOCAL_EPT_ADDR,
@@ -200,31 +206,30 @@ _task_core_remote(void *argv)
                                    (void *)&has_received,
                                    &my_ept_context);
 
+    msg("created ept addr = %d done\n", LOCAL_EPT_ADDR);
+
 #ifdef RPMSG_LITE_NS_USED
     rpmsg_ns_announce(my_rpmsg, my_ept, RPMSG_LITE_NS_ANNOUNCE_STRING, RL_NS_CREATE);
 #endif /*RPMSG_LITE_NS_USED*/
 
-    msg("created ept addr = %d\n", LOCAL_EPT_ADDR);
-
     while(1)
     {
     #if 1
-        static int      cnt = 5;
-        msg_box_t       msg = {0};
-
-        msg.data = cnt;
-
-        if( g_remote_addr && msg.data )
+        if( has_received )
         {
+//            static msg_box_t       msgbox = {0};
+
+            pthread_mutex_lock(&g_mtx_rpmsg_rx);
             has_received = 0;
+            pthread_mutex_unlock(&g_mtx_rpmsg_rx);
 
             rpmsg_lite_send(my_rpmsg, my_ept,
                             g_remote_addr,
-                            (char *)&msg,
+                            (char *)&g_msgbox,
                             sizeof(msg_box_t),
                             RL_DONT_BLOCK);
 
-             cnt--;
+            msg("sent (to addr=%ld) msg done\n", g_remote_addr);
         }
     #endif // 0
 
